@@ -60,6 +60,26 @@ export const TOOLS = [
     rollback: null,
   },
   {
+    slug: "pc.screenshot",
+    description:
+      "Nimmt einen Screenshot des PC-Desktops auf und liefert ihn als kurzlebige URL " +
+      "oder Base64-PNG zurueck (read-only, zur Anzeige am iPhone).",
+    input_schema: {
+      type: "object",
+      properties: {
+        display: {
+          type: "integer",
+          description: "0 = primaerer Monitor, 1 = sekundaerer.",
+          default: 0,
+        },
+      },
+      additionalProperties: false,
+    },
+    is_destructive: false,
+    requires_confirmation: false,
+    rollback: null,
+  },
+  {
     slug: "datadog.alerts",
     description:
       "Ruft aktuell alarmierende Datadog-Monitore ab (Alert/Warn, read-only).",

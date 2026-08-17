@@ -49,7 +49,7 @@ Danach: „Hey Siri, Cockpit Tages-Summary."
 
 ## Sicherheitsmodell in einem Absatz
 
-Stufe-1-Whitelist mit 8 Aktionen (`zielsystem.verb`), hart kodiert in Worker **und** (später) PC-Handler. Reads laufen sofort; `pc.wake`/`pc.sleep`/`pc.run_script` kommen als Vorschlag zurück und laufen erst nach Bestätigung am iPhone (60-s-Fenster). Bearer-Token fürs iPhone, HMAC-SHA256 + Cloudflare Tunnel Richtung PC, 20 Requests/min, Audit-Log mit Trace-ID auf jeder Mitteilung, Kill-Switch per Datei. Kein Freitext Richtung PC — niemals. Details: [`skills/agentic-ops-cockpit/references/security_model.md`](skills/agentic-ops-cockpit/references/security_model.md)
+Whitelist mit 9 Aktionen (`zielsystem.verb`), hart kodiert in Worker **und** (später) PC-Handler. Reads laufen sofort; `pc.wake`/`pc.sleep`/`pc.run_script` kommen als Vorschlag zurück und laufen erst nach Bestätigung am iPhone (60-s-Fenster). Bearer-Token fürs iPhone, HMAC-SHA256 + Cloudflare Tunnel Richtung PC, 20 Requests/min, Audit-Log mit Trace-ID auf jeder Mitteilung, Kill-Switch per Datei. Kein Freitext Richtung PC — niemals. Details: [`skills/agentic-ops-cockpit/references/security_model.md`](skills/agentic-ops-cockpit/references/security_model.md)
 
 ## Status + Roadmap
 

@@ -38,7 +38,7 @@ Sicherheitsmodell (Guard-Block, HMAC, Rotation): [`../../references/security_mod
 ## Dateien
 
 - `src/index.js` — Routing, Auth (Hash-Vergleich), Rate-Limit (KV), Confirm-Flow, Audit-Log
-- `src/tools.js` — Aktions-Whitelist Stufe 1 (8 Aktionen) inkl. Cockpit-Metadaten
+- `src/tools.js` — Aktions-Whitelist (9 Aktionen) inkl. Cockpit-Metadaten
 - `src/guard.js` — Guard-Block: Whitelist-Erzwingung, HMAC-Signierung, Timeouts, Limits
 - `src/actions.js` — Router: PC via Tunnel+HMAC, Datadog/Jira/Spotify direkt, `summary.day` als Aggregat
 - `src/claude.js` — Anthropic-Messages-Call mit Tool-Loop (max. 3 Runden), Observer-Mode-Trennung

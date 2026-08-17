@@ -124,8 +124,11 @@ Empfohlene drei:
 | `Cockpit Feierabend` | `Feierabend` |
 | `Cockpit Status` | `Wie geht es dem PC? Status bitte.` |
 | `Cockpit Tages-Summary` | `Tages-Summary` |
+| `Cockpit Bildschirm` | `Mach einen Screenshot vom PC` |
 
 „Hey Siri, Cockpit Feierabend" läuft dann ohne jede Rückfrage bis zum Bestätigungs-Menü für `pc.sleep`.
+
+Zum Screenshot: Sobald der PC-Handler steht, enthält die Antwort eine kurzlebige Bild-URL (bzw. Base64-PNG) — sie erscheint in der Mitteilung und lässt sich antippen. Wer es komfortabler will, hängt im „Andernfalls"-Zweig eine **„Wenn"**-Prüfung auf den Schlüssel `url` an und zeigt das Bild direkt mit **„Inhalt der URL abrufen"** + **„Übersicht"** (Quick Look). Bis der Handler existiert, antwortet die Aktion mit `not_configured`.
 
 ### Schneller Zugriff ohne Siri
 

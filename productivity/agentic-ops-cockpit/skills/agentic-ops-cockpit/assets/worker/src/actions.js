@@ -16,6 +16,7 @@ const HANDLERS = {
   "pc.sleep": (p, env, t) => callPcHandler(env, "pc.sleep", p, t),
   "pc.status": (p, env, t) => callPcHandler(env, "pc.status", p, t),
   "pc.run_script": (p, env, t) => callPcHandler(env, "pc.run_script", p, t),
+  "pc.screenshot": (p, env, t) => callPcHandler(env, "pc.screenshot", p, t),
   "datadog.alerts": datadogAlerts,
   "jira.my_tickets": jiraMyTickets,
   "spotify.now_playing": spotifyNowPlaying,

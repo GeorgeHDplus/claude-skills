@@ -20,7 +20,7 @@ Dieses Paket ist die **Implementierung der iOS-Zugriffsschicht**: deploybarer Wo
 ```
 iPhone Shortcut  →  Cloudflare Worker  →  Claude API  →  Action Router  →  Ziel-System
    (Siri/Text)      (Auth, Rate-Limit,     (Tool-Wahl      (Whitelist,      (PC via Tunnel+HMAC,
-                     Trace-ID, Audit)       aus 8 Tools)     Guard, 15s)      Datadog/Jira/Spotify direkt)
+                     Trace-ID, Audit)       aus 9 Tools)     Guard, 15s)      Datadog/Jira/Spotify direkt)
                               ↑                                                   |
                               └––––––––––  Rückkanal als Notification  ←––––––––––┘
 ```
@@ -58,9 +58,12 @@ Alles außerhalb dieser Liste wird abgelehnt — von Worker **und** Handler, una
 | `jira.my_tickets` | read-only | nein |
 | `spotify.now_playing` | read-only | nein |
 | `summary.day` | read-only (Aggregat Jira + Datadog) | nein |
+| `pc.screenshot` | read-only (Desktop-Bild zur Anzeige am iPhone) | nein |
 | `pc.wake` | state-change (LAN-Wake-Endpoint) | **ja** |
 | `pc.sleep` | state-change | **ja** |
 | `pc.run_script` | state-change, nur Skript-Whitelist (`optimize-all`, `spotify-autosort`, `optimize-gaming`, `optimize-obs`) | **ja** |
+
+`pc.screenshot` ist die erste Erweiterung nach dem Beispiel-2-Muster des Cockpit-Skills — Worker-seitig fertig, wartet wie alle `pc.*`-Aktionen auf den Handler. Es ist zugleich der sensibelste Read: Wer den Shortcut-Token hat, sieht den Desktop. Bei Geräteverlust Token sofort rotieren.
 
 Neue Aktion = immer drei Stufen, sonst stirbt sie am Guard: (1) Tool-Definition in `assets/worker/src/tools.js`, (2) Router-Case in `assets/worker/src/actions.js`, (3) Handler-Implementation. Slug-Format `zielsystem.verb`, jede Aktion mit `is_destructive`, `requires_confirmation`, `rollback`, idempotent, max. 15 s.
 
