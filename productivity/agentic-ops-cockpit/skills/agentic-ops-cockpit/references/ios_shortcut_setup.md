@@ -1,0 +1,160 @@
+# iOS-Zugriff einrichten — Kurzbefehle + Siri
+
+Schritt-für-Schritt-Anleitung für die iPhone-Seite des Cockpits. Am Ende hast du:
+
+- **einen Haupt-Kurzbefehl „Cockpit"** — nimmt Text oder Siri-Diktat entgegen, schickt ihn an den Worker, zeigt die Antwort als Mitteilung, fragt bei bestätigungspflichtigen Aktionen nach
+- **Mini-Kurzbefehle** für feste Phrasen („Cockpit Feierabend", „Cockpit Status", „Cockpit Tages-Summary") — je ein Satz zu Siri, kein Tippen
+- **Siri-Sprachtrigger** für alles davon
+
+Die iOS-Aktionsnamen stehen auf Deutsch mit dem englischen Original in Klammern — falls Apple die Übersetzungen mal wieder ändert.
+
+## Voraussetzungen
+
+1. Worker ist deployed und der Smoketest ist grün — sonst debuggst du nachher am iPhone, was eigentlich ein Server-Problem ist:
+   ```bash
+   python3 scripts/cockpit_smoketest.py --url https://cockpit-worker.<sub>.workers.dev --token <SHORTCUT_TOKEN>
+   ```
+   (Deployment: [`worker_deployment.md`](worker_deployment.md))
+2. `SHORTCUT_TOKEN` liegt bereit (erzeugt mit `scripts/generate_secrets.py`).
+3. iPhone mit iOS 17+ und der App **Kurzbefehle** (Shortcuts).
+
+## Der Request-Kontrakt
+
+Was der Kurzbefehl sendet und zurückbekommt. Referenz-Implementierung zum Nachschlagen und Vorab-Testen am Rechner: `scripts/shortcut_payload_builder.py --curl`.
+
+**`POST /ask`** — Header `Authorization: Bearer <SHORTCUT_TOKEN>`, `Content-Type: application/json`
+
+```json
+{"prompt": "Feierabend", "source": "shortcut", "device": "iphone"}
+```
+
+Antwort:
+
+```json
+{
+  "trace_id": "3f2a…",
+  "status": "done | needs_confirmation",
+  "reply": "Kompakte deutsche Antwort für die Mitteilung",
+  "results": [{"action": "summary.day", "result": {…}}],
+  "pending": [{"action": "pc.sleep", "params": {}}]
+}
+```
+
+**`POST /confirm`** — gleiche Header
+
+```json
+{"trace_id": "3f2a…"}
+```
+
+Wichtig: Bestätigungen sind **60 Sekunden** gültig (Guard-Block). Danach antwortet der Worker mit HTTP 410 und die Aktion muss neu angestoßen werden.
+
+## Haupt-Kurzbefehl „Cockpit"
+
+Neuen Kurzbefehl anlegen, Name exakt **„Cockpit"** — der Name ist gleichzeitig die Siri-Phrase.
+
+### Eingabe-Konfiguration
+
+Oben über die Info-/Detailansicht des Kurzbefehls:
+
+- **„Bei Teilen anzeigen" / Eingabe empfangen** (Receive input): **Text**
+- **„Wenn keine Eingabe"** (If there's no input): **„Nach Text fragen"** (Ask for Text), Hinweistext: `Was soll das Cockpit tun?`
+
+Damit funktioniert derselbe Kurzbefehl in drei Modi: per Siri diktiert, per Tipp mit Abfrage, und von Mini-Kurzbefehlen mit fester Phrase aufgerufen.
+
+### Aktionen (in dieser Reihenfolge)
+
+1. **„Inhalt der URL abrufen"** (Get Contents of URL)
+   - URL: `https://cockpit-worker.<sub>.workers.dev/ask`
+   - **Methode**: `POST`
+   - **Header** (aufklappen → „Header hinzufügen"):
+     - `Authorization` = `Bearer <SHORTCUT_TOKEN>` (Wort „Bearer", Leerzeichen, Token — direkt hier einfügen, nirgendwo sonst speichern)
+   - **Body anfordern** (Request Body): `JSON`, drei Felder:
+     - `prompt` = Variable **„Kurzbefehl-Eingabe"** (Shortcut Input)
+     - `source` = `shortcut`
+     - `device` = `iphone`
+   - `Content-Type: application/json` setzt iOS bei JSON-Body automatisch.
+
+2. **„Wert aus Wörterbuch abrufen"** (Get Dictionary Value) — Schlüssel `status` aus „Inhalt der URL" → **„Variable festlegen"** (Set Variable): `Status`
+
+3. **„Wert aus Wörterbuch abrufen"** — Schlüssel `reply` aus „Inhalt der URL" → Variable `Antwort`
+
+4. **„Wert aus Wörterbuch abrufen"** — Schlüssel `trace_id` aus „Inhalt der URL" → Variable `TraceID`
+
+5. **„Wenn"** (If): `Status` **ist** `needs_confirmation`
+
+6. *(Innerhalb von „Wenn")* **„Aus Menü auswählen"** (Choose from Menu)
+   - Hinweis/Titel: Variable `Antwort`
+   - Menüpunkte: **„Ausführen"** und **„Abbrechen"**
+
+7. *(Unter „Ausführen")* **„Inhalt der URL abrufen"**
+   - URL: `https://cockpit-worker.<sub>.workers.dev/confirm`
+   - Methode `POST`, Header wie in Aktion 1
+   - Body `JSON`, ein Feld: `trace_id` = Variable `TraceID`
+   - Danach **„Ergebnis anzeigen"** (Show Result) mit „Inhalt der URL" — zeigt das Ausführungsergebnis.
+
+8. *(Unter „Abbrechen")* **„Benachrichtigung anzeigen"** (Show Notification): `Abgebrochen — nichts ausgeführt.`
+
+9. *(„Andernfalls"-Zweig / Otherwise)* **„Benachrichtigung anzeigen"**
+   - Titel: `Cockpit`
+   - Text: Variable `Antwort`, neue Zeile, `Trace: ` + Variable `TraceID`
+
+10. **„Wenn beenden"** (End If)
+
+Die Trace-ID gehört sichtbar in jede Mitteilung — ohne sie ist kein Debugging über Worker-Log und Datadog möglich (Anti-Pattern aus dem Skill: „Shortcut ohne Trace-ID-Anzeige").
+
+### Test
+
+Kurzbefehl antippen → Eingabe `Was läuft gerade auf Spotify?` → nach 2–10 s kommt die Mitteilung mit Antwort + Trace-ID. Dann der Bestätigungspfad: Eingabe `PC in Standby` → Menü „Ausführen?/Abbrechen" erscheint. Solange der PC-Handler noch nicht steht, liefert „Ausführen" sauber `not_configured` zurück — genau richtig, die iOS-Kette ist damit end-to-end verifiziert.
+
+## Siri-Sprachtrigger
+
+- **„Hey Siri, Cockpit"** funktioniert sofort — der Kurzbefehl-Name ist die Phrase. Siri fragt „Was soll das Cockpit tun?" und nimmt die Antwort als Diktat.
+- Siri liest anschließend den Mitteilungstext vor — mehr Voice-Feedback gibt es nicht (bekannte Grenze, siehe SKILL.md).
+
+### Mini-Kurzbefehle für feste Phrasen
+
+Je ein Kurzbefehl mit **einer** Aktion:
+
+1. **„Kurzbefehl ausführen"** (Run Shortcut) → Kurzbefehl: `Cockpit` → **Eingabe** (Input): fester Text, z. B. `Feierabend`
+
+Empfohlene drei:
+
+| Name (= Siri-Phrase) | Eingabe-Text |
+|---|---|
+| `Cockpit Feierabend` | `Feierabend` |
+| `Cockpit Status` | `Wie geht es dem PC? Status bitte.` |
+| `Cockpit Tages-Summary` | `Tages-Summary` |
+
+„Hey Siri, Cockpit Feierabend" läuft dann ohne jede Rückfrage bis zum Bestätigungs-Menü für `pc.sleep`.
+
+### Schneller Zugriff ohne Siri
+
+- **Home-Bildschirm**: Kurzbefehl-Details → „Zum Home-Bildschirm" — Cockpit als App-Icon.
+- **Widget**: Kurzbefehle-Widget auf den Home-/Sperrbildschirm, „Cockpit" auswählen.
+- **Action Button** (iPhone 15 Pro+): Einstellungen → Aktionstaste → Kurzbefehl → `Cockpit`.
+
+## Secret-Disziplin am iPhone
+
+- Der Token lebt **ausschließlich im Header-Feld des Kurzbefehls** — nicht in iCloud-Notizen, nicht in einer Textdatei, nicht im Verlauf eines Messengers.
+- Kurzbefehl **niemals per Link/Galerie teilen** — der Token wandert sonst mit. Wenn es doch passiert ist: Token sofort rotieren (`generate_secrets.py --only shortcut`, `wrangler secret put SHORTCUT_TOKEN`, Header im Kurzbefehl aktualisieren).
+- iCloud-Sync der Kurzbefehle auf eigene Geräte ist in Ordnung.
+
+## Grenzen der iOS-Seite (ehrlich)
+
+- **60-Sekunden-Timeout**: Länger darf der Worker nicht brauchen, sonst bricht iOS ab. Der Worker hält dafür jede Aktion unter 15 s und den Claude-Loop unter 3 Runden. Langläufer brauchen später ein Job-Muster mit Push-Nachreichung.
+- **Keine echten Buttons in Mitteilungen**: Kurzbefehle können keine actionable Notifications erzeugen. Die Bestätigung läuft deshalb als Menü **im selben Lauf** (Aktion 6). Die Push-Variante mit separatem Confirm-Kurzbefehl ist Stufe-2-Ausbau.
+- **Kein Hintergrund-Polling**: Der Kurzbefehl lebt nur, solange er läuft.
+
+## Troubleshooting
+
+| Symptom | Ursache | Fix |
+|---|---|---|
+| HTTP 401 | Token falsch/fehlt, „Bearer " vergessen | Header prüfen: exakt `Bearer <Token>`; Token gegen `wrangler secret` abgleichen |
+| HTTP 429 | > 20 Requests/Minute | Guard-Rate-Limit — kurz warten; Schleifen im Kurzbefehl suchen |
+| HTTP 410 bei Bestätigen | > 60 s bis zum Tipp auf „Ausführen" | Aktion neu anstoßen; Bestätigung zügig beantworten |
+| Timeout nach ~60 s | Worker/Claude zu langsam, Aktion hängt | `wrangler tail` mit der Trace-ID; 15-s-Aktions-Timeout greift normal vorher |
+| Mitteilung leer / „Wörterbuch"-Fehler | Antwort war kein JSON (z. B. HTML-Fehlerseite) | URL prüfen (`/ask`, nicht `/`); `cockpit_smoketest.py` laufen lassen |
+| `not_configured` als Antwort | Zielsystem hat noch keine Secrets | Erwartet — [`worker_deployment.md`](worker_deployment.md) Schritt 4/5 für das jeweilige System |
+| Siri versteht den Namen nicht | Phrase kollidiert mit App-Namen | Kurzbefehl umbenennen (z. B. „Ops Cockpit"), Phrase = neuer Name |
+
+Debug-Reihenfolge bleibt immer: **Worker-Log (`wrangler tail`) → Handler-Log → Datadog**, mit der Trace-ID aus der Mitteilung als rotem Faden.

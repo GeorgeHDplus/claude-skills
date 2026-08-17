@@ -1,0 +1,15 @@
+{
+  "name": "agentic-ops-cockpit",
+  "description": "iOS-Zugriffsschicht des Agentic Ops Cockpit: iPhone-Kurzbefehl + Siri -> Cloudflare Worker -> Claude API -> Aktions-Whitelist (Windows-PC via Tunnel+HMAC, Datadog, Jira, Spotify). Enthaelt den deploybaren Zero-Dependency-Worker (/ask, /confirm, /health mit Auth, Rate-Limit, Trace-IDs, Observer-Mode), die Schritt-fuer-Schritt-Kurzbefehl-Anleitung inkl. Siri-Triggern, Secrets-Generator, Smoke-Test und Request-Kontrakt-Referenz. Stufe-1-Whitelist mit 8 Aktionen, Guard-Block hart kodiert, bestaetigungspflichtige Aktionen nie autonom.",
+  "version": "2.8.0",
+  "author": {
+    "name": "GeorgeHDplus",
+    "url": "https://github.com/GeorgeHDplus"
+  },
+  "homepage": "https://github.com/GeorgeHDplus/claude-skills/tree/main/productivity/agentic-ops-cockpit",
+  "repository": "https://github.com/GeorgeHDplus/claude-skills",
+  "license": "MIT",
+  "skills": [
+    "./skills/agentic-ops-cockpit"
+  ]
+}
