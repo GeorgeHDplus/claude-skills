@@ -42,19 +42,42 @@ async function callPcHandler(env, action, params, traceId) {
   const body = JSON.stringify({ action, params: params ?? {}, trace_id: traceId });
   const ts = String(Math.floor(Date.now() / 1000));
   const sig = await hmacSign(env.PC_HMAC_SECRET, ts, body);
+  const headers = {
+    "content-type": "application/json",
+    "x-cockpit-timestamp": ts,
+    "x-cockpit-signature": sig,
+  };
+  // Cloudflare Access Service Token — Edge-Filter VOR dem Tunnel: hält alles
+  // außer dem Worker vom Handler-Hostname fern. Optional (nur wenn gesetzt),
+  // aber empfohlen. Ersetzt NICHT die HMAC — beides zusammen = Defense-in-Depth.
+  // Setup: references/cloudflare_tunnel.md.
+  if (env.CF_ACCESS_CLIENT_ID && env.CF_ACCESS_CLIENT_SECRET) {
+    headers["CF-Access-Client-Id"] = env.CF_ACCESS_CLIENT_ID;
+    headers["CF-Access-Client-Secret"] = env.CF_ACCESS_CLIENT_SECRET;
+  }
   const res = await fetch(new URL("/action", env.PC_HANDLER_URL), {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-cockpit-timestamp": ts,
-      "x-cockpit-signature": sig,
-    },
+    headers,
     body,
   });
   if (res.status === 503) {
     return { status: "kill_switch", hint: "KILL-Datei auf dem PC aktiv — Handler antwortet nicht." };
   }
-  if (!res.ok) throw new Error(`PC-Handler HTTP ${res.status}`);
+  if (!res.ok) {
+    // Handler-Fehler kommen als JSON; Cloudflare Access weist am Edge mit HTML
+    // ab (der Request erreicht den Handler nie) — daran unterscheidbar.
+    const ctype = res.headers.get("content-type") || "";
+    if (!ctype.includes("application/json")) {
+      return {
+        status: "access_denied",
+        http: res.status,
+        hint:
+          "Von Cloudflare Access abgewiesen (nicht vom Handler) — CF_ACCESS_CLIENT_ID/SECRET " +
+          "und die Access-Policy prüfen: references/cloudflare_tunnel.md.",
+      };
+    }
+    throw new Error(`PC-Handler HTTP ${res.status}`);
+  }
   return res.json();
 }
 

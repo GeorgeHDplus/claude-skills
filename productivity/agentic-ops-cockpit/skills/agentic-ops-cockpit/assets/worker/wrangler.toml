@@ -5,6 +5,9 @@
 #   ANTHROPIC_API_KEY   (Pflicht)
 #   SHORTCUT_TOKEN      (Pflicht — Bearer-Token des iPhone-Shortcuts)
 #   PC_HMAC_SECRET      (optional — erst wenn PC-Handler steht)
+#   CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET  (optional, empfohlen —
+#                       Cloudflare Access Service Token vor dem Tunnel;
+#                       references/cloudflare_tunnel.md)
 #   DATADOG_API_KEY / DATADOG_APP_KEY          (optional)
 #   JIRA_EMAIL / JIRA_API_TOKEN                (optional)
 #   SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET / SPOTIFY_REFRESH_TOKEN  (optional)

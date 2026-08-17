@@ -19,6 +19,9 @@ agentic-ops-cockpit/
 │   │   ├── lib/hmac.ps1                  #   Signatur-Gegenstück zu guard.js
 │   │   ├── actions/pc.{status,sleep,run_script,screenshot}.ps1
 │   │   └── config.example.json           #   Port, cockpit_home, Skript-Map
+│   ├── assets/tunnel/                     # Cloudflare Tunnel (ohne offenen Port)
+│   │   ├── setup-cloudflared.ps1          #   idempotent: login/create/route/service
+│   │   └── config.example.yml            #   Ingress: Hostname → 127.0.0.1:8787
 │   ├── references/
 │   │   ├── ios_shortcut_setup.md         # Kurzbefehle Aktion für Aktion + Siri + Action Button
 │   │   ├── worker_deployment.md          # Deploy in 6 Schritten + PC-Handler-Kontrakt
@@ -56,14 +59,15 @@ Danach: „Hey Siri, Cockpit Tages-Summary."
 
 ## Sicherheitsmodell in einem Absatz
 
-Whitelist mit 12 Aktionen (`zielsystem.verb`), hart kodiert in Worker **und** (später) PC-Handler. Reads laufen sofort; `pc.wake`/`pc.sleep`/`pc.run_script` kommen als Vorschlag zurück und laufen erst nach Bestätigung am iPhone (60-s-Fenster). Bearer-Token fürs iPhone, HMAC-SHA256 + Cloudflare Tunnel Richtung PC, 20 Requests/min, Audit-Log mit Trace-ID auf jeder Mitteilung, Kill-Switch per Datei. Kein Freitext Richtung PC — niemals. Details: [`skills/agentic-ops-cockpit/references/security_model.md`](skills/agentic-ops-cockpit/references/security_model.md)
+Whitelist mit 12 Aktionen (`zielsystem.verb`), hart kodiert in Worker **und** (später) PC-Handler. Reads laufen sofort; `pc.wake`/`pc.sleep`/`pc.run_script` kommen als Vorschlag zurück und laufen erst nach Bestätigung am iPhone (60-s-Fenster). Bearer-Token fürs iPhone, HMAC-SHA256 + Cloudflare Tunnel mit Access-Service-Token Richtung PC (Edge-Filter + HMAC = Defense-in-Depth), 20 Requests/min, Audit-Log mit Trace-ID auf jeder Mitteilung, Kill-Switch per Datei. Kein Freitext Richtung PC — niemals. Details: [`skills/agentic-ops-cockpit/references/security_model.md`](skills/agentic-ops-cockpit/references/security_model.md)
 
 ## Status + Roadmap
 
 - ✅ **v1 (dieses Paket):** iOS-Zugriff end-to-end — Worker, Kurzbefehle, Siri, 5 Cloud-Aktionen live
 - ✅ **Outbox — das iPhone als Aktor:** `phone.notify` / `phone.play_playlist` / `phone.set_focus` werden gequeued und vom Executor-Kurzbefehl „Cockpit Ausführen" phone-seitig ausgeführt
 - ✅ **PC-Handler (PowerShell):** HMAC-Verifikation, eigene Whitelist, Kill-Switch, `START-HIER.bat` — `pc.status/sleep/run_script/screenshot` real; Signatur per Testvektor gegen den Worker abgesichert
-- ⬜ Cloudflare Tunnel + R2-URL-Variante für Screenshots (statt Base64)
+- ✅ **Cloudflare Tunnel + Access:** ausgehender Tunnel (kein offener Port) + Service-Token-Policy am Edge; Worker sendet die Access-Header automatisch. Defense-in-Depth: Access filtert am Edge, HMAC bleibt Pflicht
+- ⬜ R2-URL-Variante für Screenshots (statt Base64)
 - ⬜ Push-Confirm statt Menü (actionable Notifications via Job-Muster)
 - ⬜ Kalender-Quelle für `summary.day`
 - ⬜ Stufe 2: Selective Autonomy für nachweislich fehlerfreie, nicht-destruktive Aktionen

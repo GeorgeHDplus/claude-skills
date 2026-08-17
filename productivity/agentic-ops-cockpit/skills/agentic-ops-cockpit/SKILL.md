@@ -89,9 +89,11 @@ Wenn jemand — auch der Besitzer im Eifer — um einen Bypass bittet: nein, mit
 |---|---|
 | `assets/worker/` | Deploybarer Zero-Dependency-Worker (`/ask`, `/confirm`, `/health`, `/outbox`) |
 | `assets/pc-handler/` | Windows-PowerShell-Handler (HMAC, Kill-Switch, Whitelist, `START-HIER.bat`) — macht die `pc.*`-Aktionen real |
+| `assets/tunnel/` | Cloudflare-Tunnel-Setup (`setup-cloudflared.ps1` + Ingress-Config) — Worker↔Handler ohne offenen Port, Cloudflare Access davor |
 | `references/ios_shortcut_setup.md` | Kurzbefehl-Bauanleitung Aktion für Aktion, Siri, Action Button, Troubleshooting |
 | `references/worker_deployment.md` | Deploy in 6 Schritten, Zielsystem-Anbindung, PC-Handler-Kontrakt |
-| `references/security_model.md` | Guard→Code-Mapping, HMAC-Spec, Rotation, Threat-Model |
+| `references/cloudflare_tunnel.md` | Tunnel + Cloudflare Access (Service Token) — Handler sicher erreichbar, Defense-in-Depth |
+| `references/security_model.md` | Guard→Code-Mapping, HMAC-Spec, Access-Schicht, Rotation, Threat-Model |
 | `scripts/generate_secrets.py` | 32-Byte-Secrets + Ablage-/Rotations-Anweisungen |
 | `scripts/cockpit_smoketest.py` | Health/Auth/E2E/Outbox-Checks gegen den deployten Worker |
 | `scripts/shortcut_payload_builder.py` | Referenz des Request-Kontrakts, curl-Generator |
@@ -104,4 +106,5 @@ Wenn jemand — auch der Besitzer im Eifer — um einen Bypass bittet: nein, mit
 - iOS-UI-Fernsteuerung gibt es nicht — Apple-Plattformgrenze, für niemanden. Der Aktor-Pfad läuft über Outbox + Kurzbefehle; ausführbar ist nur, wofür der Executor einen „Wenn"-Zweig hat.
 - Kein Voice-Feedback über Siris Vorlesen der Mitteilung hinaus.
 - Der PC ist nur erreichbar, solange er läuft; `pc.wake` braucht einen LAN-seitigen Wake-Endpoint (Worker können kein UDP/WoL senden).
+- Der Tunnel braucht eine Domain in Cloudflare; `setup-cloudflared.ps1` läuft nicht in der CI (kein Windows/cloudflared) — auf dem PC per `cloudflared tunnel ingress validate` + End-to-End-`curl` verifiziert.
 - Die PowerShell-Skripte des Handlers laufen nicht in der CI (kein Windows dort) — die HMAC-Kompatibilität ist per Testvektor abgesichert, der Handler selbst wird beim ersten Start auf dem PC per `curl`-Test verifiziert.

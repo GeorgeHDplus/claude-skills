@@ -62,8 +62,8 @@ Der Handler liegt fertig bei: [`../assets/pc-handler/`](../assets/pc-handler/) (
 1. Handler-Verzeichnis auf den Windows-PC kopieren; `config.json` aus `config.example.json` anlegen und die 4 Skript-Pfade eintragen.
 2. `PC_HMAC_SECRET` (aus Schritt 1) nach `%COCKPIT_HOME%\secret.key` schreiben, ACL nur für den User (`icacls … /grant:r "$env:USERNAME:(R)"`).
 3. `START-HIER.bat` starten (nicht als Admin). Ersten Kontakt lokal testen — `curl` gegen `127.0.0.1:8787`, signiert via `scripts/hmac_test_vector.py --secret … --ts now --curl` (siehe Handler-README).
-4. Cloudflare Tunnel auf dem PC einrichten, Access-Policy „nur diese Worker-Route", auf `http://127.0.0.1:8787` zeigen lassen.
-5. `PC_HANDLER_URL` in `wrangler.toml` auf die Tunnel-URL setzen; `npx wrangler secret put PC_HMAC_SECRET` (derselbe Wert wie in `secret.key`).
+4. Cloudflare Tunnel + Access einrichten — liegt fertig bei: [`../assets/tunnel/`](../assets/tunnel/) (`setup-cloudflared.ps1` + `config.example.yml`), vollständige Anleitung inkl. Service-Token-Policy in [`cloudflare_tunnel.md`](cloudflare_tunnel.md). Ergebnis: `https://cockpit-pc.<domain>` → `127.0.0.1:8787`, am Edge durch Cloudflare Access geschützt.
+5. `PC_HANDLER_URL` in `wrangler.toml` auf die Tunnel-URL setzen; `npx wrangler secret put PC_HMAC_SECRET` (derselbe Wert wie in `secret.key`); `CF_ACCESS_CLIENT_ID` + `CF_ACCESS_CLIENT_SECRET` als Secrets setzen (Service Token aus Schritt 4).
 6. `pc.wake` extra: Worker können kein UDP/Wake-on-LAN ins LAN senden, und der Handler schläft ja gerade. `PC_WAKE_WEBHOOK_URL` auf einen LAN-seitigen Wake-Endpoint zeigen lassen (Router-API, Raspberry Pi, Home Assistant Webhook).
 
 **Kontrakt, den der mitgelieferte Handler erfüllt** (`POST /action`):
