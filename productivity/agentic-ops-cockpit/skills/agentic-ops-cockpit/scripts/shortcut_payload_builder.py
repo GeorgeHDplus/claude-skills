@@ -11,6 +11,7 @@ Usage:
   python3 shortcut_payload_builder.py "Feierabend"
   python3 shortcut_payload_builder.py "Status?" --source siri --json
   python3 shortcut_payload_builder.py --confirm 3f2a... --url https://... --token XYZ --curl
+  python3 shortcut_payload_builder.py --outbox --url https://... --token XYZ --curl
 """
 
 import argparse
@@ -21,6 +22,11 @@ SOURCES = ("shortcut", "siri")
 
 
 def build(args):
+    base = args.url.rstrip("/") if args.url else "https://<worker-url>"
+    auth = {"Authorization": f"Bearer {args.token or '<SHORTCUT_TOKEN>'}"}
+
+    if args.outbox:
+        return {"method": "GET", "url": base + "/outbox", "headers": auth, "body": None}
     if args.confirm:
         path = "/confirm"
         body = {"trace_id": args.confirm}
@@ -28,19 +34,16 @@ def build(args):
         path = "/ask"
         body = {"prompt": args.prompt, "source": args.source, "device": "iphone"}
 
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {args.token or '<SHORTCUT_TOKEN>'}",
-    }
-    url = (args.url.rstrip("/") if args.url else "https://<worker-url>") + path
-    return {"method": "POST", "url": url, "headers": headers, "body": body}
+    headers = {"Content-Type": "application/json", **auth}
+    return {"method": "POST", "url": base + path, "headers": headers, "body": body}
 
 
 def as_curl(req):
-    parts = ["curl -sS -X POST", f"  '{req['url']}'"]
+    parts = [f"curl -sS -X {req['method']}", f"  '{req['url']}'"]
     for k, v in req["headers"].items():
         parts.append(f"  -H '{k}: {v}'")
-    parts.append(f"  -d '{json.dumps(req['body'], ensure_ascii=False)}'")
+    if req["body"] is not None:
+        parts.append(f"  -d '{json.dumps(req['body'], ensure_ascii=False)}'")
     return " \\\n".join(parts)
 
 
@@ -65,6 +68,11 @@ def main(argv=None):
         metavar="TRACE_ID",
         help="Statt /ask den /confirm-Request fuer diese Trace-ID bauen.",
     )
+    parser.add_argument(
+        "--outbox",
+        action="store_true",
+        help="Den GET /outbox-Request des Executor-Kurzbefehls bauen (leert die Outbox!).",
+    )
     parser.add_argument("--url", help="Worker-Basis-URL (sonst Platzhalter).")
     parser.add_argument("--token", help="SHORTCUT_TOKEN (sonst Platzhalter).")
     parser.add_argument("--curl", action="store_true", help="Als curl-Kommando ausgeben.")
@@ -87,8 +95,11 @@ def main(argv=None):
     print("Header  :")
     for k, v in req["headers"].items():
         print(f"  {k}: {v}")
-    print("Body (JSON — im Kurzbefehl als 'Woerterbuch' / Dictionary anlegen):")
-    print(json.dumps(req["body"], indent=2, ensure_ascii=False))
+    if req["body"] is not None:
+        print("Body (JSON — im Kurzbefehl als 'Woerterbuch' / Dictionary anlegen):")
+        print(json.dumps(req["body"], indent=2, ensure_ascii=False))
+    else:
+        print("Body    : (keiner — GET-Request)")
     print()
     print("Im Kurzbefehl entspricht das der Aktion 'Inhalt der URL abrufen'")
     print("(Get Contents of URL): Methode POST, 'JSON anfordern' = Body-Felder,")

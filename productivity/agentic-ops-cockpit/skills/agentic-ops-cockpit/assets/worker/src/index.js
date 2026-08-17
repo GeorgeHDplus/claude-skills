@@ -4,10 +4,12 @@
 //   POST /ask      — {prompt} -> Claude interpretiert -> Reads sofort,
 //                    bestätigungspflichtige Aktionen als pending (Observer-Mode)
 //   POST /confirm  — {trace_id} -> führt pending Aktionen aus (max. 60s alt)
+//   GET  /outbox   — iPhone-Executor holt gequeue-te phone.*-Aktionen ab
+//                    (at-most-once: Abholung leert die Outbox)
 // Auth: Authorization: Bearer <SHORTCUT_TOKEN> (Hash-Vergleich, kein Timing-Leak).
 
 import { interpret } from "./claude.js";
-import { execute } from "./actions.js";
+import { execute, drainOutbox } from "./actions.js";
 import { GUARD, sha256hex } from "./guard.js";
 
 export default {
@@ -17,9 +19,6 @@ export default {
     try {
       if (url.pathname === "/health" && request.method === "GET") {
         return json({ status: "ok", mode: env.COCKPIT_MODE || "observer" });
-      }
-      if (request.method !== "POST") {
-        return json({ error: "method_not_allowed", trace_id: traceId }, 405);
       }
 
       const authError = await checkAuth(request, env);
@@ -31,6 +30,17 @@ export default {
       if (await rateLimited(env)) {
         log({ trace_id: traceId, event: "rate_limited" });
         return json({ error: "rate_limited", trace_id: traceId }, 429);
+      }
+
+      if (url.pathname === "/outbox" && request.method === "GET") {
+        const out = await drainOutbox(env);
+        if (out.items.length > 0) {
+          log({ trace_id: traceId, event: "outbox_drained", actions: out.items.map((i) => i.action) });
+        }
+        return json({ trace_id: traceId, ...out });
+      }
+      if (request.method !== "POST") {
+        return json({ error: "method_not_allowed", trace_id: traceId }, 405);
       }
 
       if (url.pathname === "/ask") return await handleAsk(request, env, traceId);

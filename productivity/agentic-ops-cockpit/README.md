@@ -49,11 +49,12 @@ Danach: „Hey Siri, Cockpit Tages-Summary."
 
 ## Sicherheitsmodell in einem Absatz
 
-Whitelist mit 9 Aktionen (`zielsystem.verb`), hart kodiert in Worker **und** (später) PC-Handler. Reads laufen sofort; `pc.wake`/`pc.sleep`/`pc.run_script` kommen als Vorschlag zurück und laufen erst nach Bestätigung am iPhone (60-s-Fenster). Bearer-Token fürs iPhone, HMAC-SHA256 + Cloudflare Tunnel Richtung PC, 20 Requests/min, Audit-Log mit Trace-ID auf jeder Mitteilung, Kill-Switch per Datei. Kein Freitext Richtung PC — niemals. Details: [`skills/agentic-ops-cockpit/references/security_model.md`](skills/agentic-ops-cockpit/references/security_model.md)
+Whitelist mit 12 Aktionen (`zielsystem.verb`), hart kodiert in Worker **und** (später) PC-Handler. Reads laufen sofort; `pc.wake`/`pc.sleep`/`pc.run_script` kommen als Vorschlag zurück und laufen erst nach Bestätigung am iPhone (60-s-Fenster). Bearer-Token fürs iPhone, HMAC-SHA256 + Cloudflare Tunnel Richtung PC, 20 Requests/min, Audit-Log mit Trace-ID auf jeder Mitteilung, Kill-Switch per Datei. Kein Freitext Richtung PC — niemals. Details: [`skills/agentic-ops-cockpit/references/security_model.md`](skills/agentic-ops-cockpit/references/security_model.md)
 
 ## Status + Roadmap
 
 - ✅ **v1 (dieses Paket):** iOS-Zugriff end-to-end — Worker, Kurzbefehle, Siri, 5 Cloud-Aktionen live, PC-Aktionen als sauberes `not_configured` bis der Handler steht
+- ✅ **Outbox — das iPhone als Aktor:** `phone.notify` / `phone.play_playlist` / `phone.set_focus` werden gequeued und vom Executor-Kurzbefehl „Cockpit Ausführen" phone-seitig ausgeführt
 - ⬜ PC-Handler (PowerShell, HMAC-Verifikation, eigene Whitelist, Kill-Switch) + Cloudflare Tunnel
 - ⬜ Push-Confirm statt Menü (actionable Notifications via Job-Muster)
 - ⬜ Kalender-Quelle für `summary.day`

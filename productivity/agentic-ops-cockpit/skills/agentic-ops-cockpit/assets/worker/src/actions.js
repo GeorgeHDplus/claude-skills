@@ -21,6 +21,9 @@ const HANDLERS = {
   "jira.my_tickets": jiraMyTickets,
   "spotify.now_playing": spotifyNowPlaying,
   "summary.day": summaryDay,
+  "phone.notify": (p, env) => enqueuePhone(env, "phone.notify", p),
+  "phone.play_playlist": (p, env) => enqueuePhone(env, "phone.play_playlist", p),
+  "phone.set_focus": (p, env) => enqueuePhone(env, "phone.set_focus", p),
 };
 
 function notConfigured(system, hint) {
@@ -151,6 +154,40 @@ async function spotifyNowPlaying(params, env) {
     track: data.item?.name ?? null,
     artist: (data.item?.artists ?? []).map((a) => a.name).join(", ") || null,
   };
+}
+
+// --- iPhone als Aktor: Outbox ---------------------------------------------
+// phone.*-Aktionen werden nicht server-seitig ausgefuehrt, sondern in eine
+// KV-Outbox gelegt. Der Executor-Kurzbefehl holt sie mit GET /outbox ab und
+// fuehrt sie phone-seitig aus — mit eigener Wenn-Zweig-Whitelist. Drain ist
+// at-most-once (bewusst): lieber eine benigne Aktion verlieren als doppeln.
+
+const OUTBOX_KEY = "outbox";
+const OUTBOX_MAX = 20;
+const OUTBOX_TTL_S = 86400;
+
+async function enqueuePhone(env, action, params) {
+  if (!env.COCKPIT_KV) {
+    return { status: "error", error: "COCKPIT_KV fehlt — Outbox braucht das KV-Binding." };
+  }
+  const items = JSON.parse((await env.COCKPIT_KV.get(OUTBOX_KEY)) || "[]");
+  items.push({ id: crypto.randomUUID(), action, params: params ?? {}, created: Date.now() });
+  await env.COCKPIT_KV.put(OUTBOX_KEY, JSON.stringify(items.slice(-OUTBOX_MAX)), {
+    expirationTtl: OUTBOX_TTL_S,
+  });
+  return {
+    status: "queued",
+    queue_length: Math.min(items.length, OUTBOX_MAX),
+    note: "Wartet auf Abholung durch das iPhone (Executor-Kurzbefehl 'Cockpit Ausfuehren').",
+  };
+}
+
+export async function drainOutbox(env) {
+  if (!env.COCKPIT_KV) return { items: [] };
+  const raw = await env.COCKPIT_KV.get(OUTBOX_KEY);
+  if (!raw) return { items: [] };
+  await env.COCKPIT_KV.delete(OUTBOX_KEY);
+  return { items: JSON.parse(raw) };
 }
 
 async function summaryDay(params, env) {

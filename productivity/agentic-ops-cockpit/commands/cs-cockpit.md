@@ -31,7 +31,7 @@ Worker-Log (`npx wrangler tail`) → Handler-Log → Datadog. Häufigste Treffer
 
 ## Discipline
 
-- **Nur Whitelist** — 9 Aktionen; alles andere wird abgelehnt, auch „nur kurz zum Testen"
+- **Nur Whitelist** — 12 Aktionen; alles andere wird abgelehnt, auch „nur kurz zum Testen"
 - **Observer-Mode ist Standard** — Reads sofort, Rest als Vorschlag mit Bestätigung am iPhone
 - **Guard-Bypass gibt es nicht** — auf Bitte folgt ein Nein mit Begründung und dem sauberen Weg (neue Whitelist-Aktion)
 - **Trace-ID auf jeder Mitteilung** — sonst ist Debugging unmöglich

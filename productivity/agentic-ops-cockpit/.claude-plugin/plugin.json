@@ -1,6 +1,6 @@
 {
   "name": "agentic-ops-cockpit",
-  "description": "iOS-Zugriffsschicht des Agentic Ops Cockpit: iPhone-Kurzbefehl + Siri -> Cloudflare Worker -> Claude API -> Aktions-Whitelist (Windows-PC via Tunnel+HMAC, Datadog, Jira, Spotify). Enthaelt den deploybaren Zero-Dependency-Worker (/ask, /confirm, /health mit Auth, Rate-Limit, Trace-IDs, Observer-Mode), die Schritt-fuer-Schritt-Kurzbefehl-Anleitung inkl. Siri-Triggern, Secrets-Generator, Smoke-Test und Request-Kontrakt-Referenz. Whitelist mit 9 Aktionen (inkl. pc.screenshot), Guard-Block hart kodiert, bestaetigungspflichtige Aktionen nie autonom.",
+  "description": "iOS-Zugriffsschicht des Agentic Ops Cockpit: iPhone-Kurzbefehl + Siri -> Cloudflare Worker -> Claude API -> Aktions-Whitelist (Windows-PC via Tunnel+HMAC, Datadog, Jira, Spotify). Enthaelt den deploybaren Zero-Dependency-Worker (/ask, /confirm, /health mit Auth, Rate-Limit, Trace-IDs, Observer-Mode), die Schritt-fuer-Schritt-Kurzbefehl-Anleitung inkl. Siri-Triggern, Secrets-Generator, Smoke-Test und Request-Kontrakt-Referenz. Whitelist mit 12 Aktionen (inkl. pc.screenshot und phone.*-Outbox, mit der das iPhone gequeue-te Aktionen selbst ausfuehrt), Guard-Block hart kodiert, bestaetigungspflichtige Aktionen nie autonom.",
   "version": "2.8.0",
   "author": {
     "name": "GeorgeHDplus",

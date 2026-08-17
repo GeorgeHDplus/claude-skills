@@ -7,10 +7,12 @@ am iPhone auftauchen. Standard-Checks (kostenlos, kein Claude-Call):
   1. GET  /health                -> 200 + status "ok"
   2. POST /ask ohne Token        -> 401 (Auth greift)
   3. POST /ask mit falschem Token-> 401 (kein Token-Bypass)
+  4. GET  /outbox mit Token      -> 200 + items-Liste (Executor-Pfad;
+                                    Achtung: leert eine ggf. gefuellte Outbox)
 
 Mit --ask zusaetzlich ein echter End-to-End-Lauf (kostet einen Claude-Call):
 
-  4. POST /ask mit Token         -> 200 + trace_id + status done/needs_confirmation
+  5. POST /ask mit Token         -> 200 + trace_id + status done/needs_confirmation
 
 Exit-Code 0 = alle Checks bestanden, 1 = mindestens ein Check rot.
 
@@ -81,6 +83,16 @@ def run_checks(base_url, token, do_ask, prompt):
             "name": "auth_wrong_token",
             "ok": status == 401,
             "detail": f"HTTP {status} (erwartet 401)",
+        }
+    )
+
+    status, body = _request("GET", f"{base}/outbox", token=token)
+    items = body.get("items") if isinstance(body, dict) else None
+    checks.append(
+        {
+            "name": "outbox_drain",
+            "ok": status == 200 and isinstance(items, list),
+            "detail": f"HTTP {status}, items={len(items) if isinstance(items, list) else '?'}",
         }
     )
 

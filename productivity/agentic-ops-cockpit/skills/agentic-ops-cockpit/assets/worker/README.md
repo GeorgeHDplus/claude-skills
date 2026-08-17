@@ -34,11 +34,12 @@ Sicherheitsmodell (Guard-Block, HMAC, Rotation): [`../../references/security_mod
 | `/health` | GET | keine | Reachability-Probe (`{"status":"ok","mode":"observer"}`) |
 | `/ask` | POST | Bearer `SHORTCUT_TOKEN` | Prompt interpretieren; Reads sofort, Rest als `needs_confirmation` |
 | `/confirm` | POST | Bearer `SHORTCUT_TOKEN` | Pending-Aktionen einer Trace-ID ausführen (max. 60s alt) |
+| `/outbox` | GET | Bearer `SHORTCUT_TOKEN` | Executor-Kurzbefehl holt gequeue-te `phone.*`-Aktionen ab (Abholung leert) |
 
 ## Dateien
 
 - `src/index.js` — Routing, Auth (Hash-Vergleich), Rate-Limit (KV), Confirm-Flow, Audit-Log
-- `src/tools.js` — Aktions-Whitelist (9 Aktionen) inkl. Cockpit-Metadaten
+- `src/tools.js` — Aktions-Whitelist (12 Aktionen) inkl. Cockpit-Metadaten
 - `src/guard.js` — Guard-Block: Whitelist-Erzwingung, HMAC-Signierung, Timeouts, Limits
-- `src/actions.js` — Router: PC via Tunnel+HMAC, Datadog/Jira/Spotify direkt, `summary.day` als Aggregat
+- `src/actions.js` — Router: PC via Tunnel+HMAC, Datadog/Jira/Spotify direkt, `summary.day` als Aggregat, `phone.*` in die Outbox
 - `src/claude.js` — Anthropic-Messages-Call mit Tool-Loop (max. 3 Runden), Observer-Mode-Trennung

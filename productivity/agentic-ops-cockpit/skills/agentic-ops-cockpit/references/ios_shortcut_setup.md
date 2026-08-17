@@ -5,6 +5,7 @@ Schritt-für-Schritt-Anleitung für die iPhone-Seite des Cockpits. Am Ende hast 
 - **einen Haupt-Kurzbefehl „Cockpit"** — nimmt Text oder Siri-Diktat entgegen, schickt ihn an den Worker, zeigt die Antwort als Mitteilung, fragt bei bestätigungspflichtigen Aktionen nach
 - **Mini-Kurzbefehle** für feste Phrasen („Cockpit Feierabend", „Cockpit Status", „Cockpit Tages-Summary") — je ein Satz zu Siri, kein Tippen
 - **Siri-Sprachtrigger** für alles davon
+- **einen Executor-Kurzbefehl „Cockpit Ausführen"** — dreht die Richtung um: holt `phone.*`-Aktionen ab, die das Cockpit für dein iPhone gequeued hat, und führt sie phone-seitig aus
 
 Die iOS-Aktionsnamen stehen auf Deutsch mit dem englischen Original in Klammern — falls Apple die Übersetzungen mal wieder ändert.
 
@@ -135,6 +136,33 @@ Zum Screenshot: Sobald der PC-Handler steht, enthält die Antwort eine kurzlebig
 - **Home-Bildschirm**: Kurzbefehl-Details → „Zum Home-Bildschirm" — Cockpit als App-Icon.
 - **Widget**: Kurzbefehle-Widget auf den Home-/Sperrbildschirm, „Cockpit" auswählen.
 - **Action Button** (iPhone 15 Pro+): Einstellungen → Aktionstaste → Kurzbefehl → `Cockpit`.
+
+## Das iPhone als Aktor — Executor-Kurzbefehl „Cockpit Ausführen"
+
+Bis hierhin steuert das iPhone den Stack. Die **Outbox** dreht die Richtung um: `/ask` kann `phone.*`-Aktionen queuen (Mitteilung zeigen, Playlist starten, Fokus setzen), und dieser zweite Kurzbefehl holt sie ab und führt sie aus. Wichtig fürs Erwartungsmanagement: iOS lässt sich nicht von außen fernsteuern — Apple erlaubt das niemandem. Kurzbefehle sind der sanktionierte Weg, und die Whitelist gilt auch hier: Der Executor führt **nur** Aktionen aus, für die er einen expliziten „Wenn"-Zweig hat; alles andere wird ignoriert.
+
+### Aktionen
+
+1. **„Inhalt der URL abrufen"** — `GET https://cockpit-worker.<sub>.workers.dev/outbox`, Header `Authorization` wie im Haupt-Kurzbefehl, **kein Body** (Methode GET). Vorab am Rechner testbar: `python3 scripts/shortcut_payload_builder.py --outbox --curl`
+2. **„Wert aus Wörterbuch abrufen"** — Schlüssel `items` → Variable `Aktionen`
+3. **„Mit jedem Element wiederholen"** (Repeat with Each) über `Aktionen`:
+   - „Wert aus Wörterbuch abrufen": `action` aus „Wiederholungselement" → Variable `Slug`; ebenso `params`
+   - **„Wenn"** `Slug` ist `phone.notify` → **„Benachrichtigung anzeigen"** mit `params.text` (Titel: `params.title`)
+   - **„Wenn"** `Slug` ist `phone.play_playlist` → Apple Music: **„Musik abspielen"** mit Playlist `params.name`; Spotify: **„URL öffnen"** mit dem Playlist-Link oder die Spotify-Shortcut-Aktion
+   - **„Wenn"** `Slug` ist `phone.set_focus` → **„Fokus festlegen"** (Set Focus) auf `params.name`
+4. **„Ende Wiederholen"**
+
+### Wann läuft der Executor?
+
+- **Empfohlen:** Als letzte Aktion im Haupt-Kurzbefehl „Cockpit" ein **„Kurzbefehl ausführen"** → `Cockpit Ausführen` anhängen. Dann wird alles, was dein `/ask` gerade gequeued hat, **im selben Lauf** ausgeführt — gefühlt null Latenz.
+- **Zeit-Automationen** (Kurzbefehle → Automation → Tageszeit, mehrere Uhrzeiten anlegen, „Sofort ausführen" aktivieren) für regelmäßiges Abholen ohne Zutun.
+- **Push von außen** (optional): Wenn nicht dein iPhone, sondern eine andere Quelle queuet und es sofort passieren soll, kann eine App wie Pushcut (Free-Tier) per Server-Push einen Kurzbefehl anstoßen. Für den Normalfall unnötig.
+
+### Eigenschaften (ehrlich)
+
+- **Abholung leert die Outbox** (at-most-once): Bricht der Executor mitten im Lauf ab, sind die abgeholten Aktionen weg. Für benigne, selbst-anzeigende Aktionen die richtige Wahl — lieber verlieren als doppeln.
+- Max. 20 Einträge, 24 h TTL — die Outbox ist ein Briefkasten, kein Archiv.
+- Stärkere Phone-Aktionen (Nachricht senden, Anruf, …) sind bewusst **nicht** in der Whitelist. Wer sie ergänzt: `requires_confirmation: true` in `tools.js` **und** eigener „Wenn"-Zweig im Executor — beides.
 
 ## Secret-Disziplin am iPhone
 

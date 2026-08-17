@@ -20,7 +20,7 @@ Dieses Paket ist die **Implementierung der iOS-Zugriffsschicht**: deploybarer Wo
 ```
 iPhone Shortcut  →  Cloudflare Worker  →  Claude API  →  Action Router  →  Ziel-System
    (Siri/Text)      (Auth, Rate-Limit,     (Tool-Wahl      (Whitelist,      (PC via Tunnel+HMAC,
-                     Trace-ID, Audit)       aus 9 Tools)     Guard, 15s)      Datadog/Jira/Spotify direkt)
+                     Trace-ID, Audit)       aus 12 Tools)    Guard, 15s)      Datadog/Jira/Spotify direkt)
                               ↑                                                   |
                               └––––––––––  Rückkanal als Notification  ←––––––––––┘
 ```
@@ -59,11 +59,16 @@ Alles außerhalb dieser Liste wird abgelehnt — von Worker **und** Handler, una
 | `spotify.now_playing` | read-only | nein |
 | `summary.day` | read-only (Aggregat Jira + Datadog) | nein |
 | `pc.screenshot` | read-only (Desktop-Bild zur Anzeige am iPhone) | nein |
+| `phone.notify` | phone-executed (Outbox → Mitteilung am iPhone) | nein (selbst-anzeigend) |
+| `phone.play_playlist` | phone-executed (Playlist am iPhone starten) | nein (selbst-anzeigend) |
+| `phone.set_focus` | phone-executed (Fokus-Modus am iPhone setzen) | nein (selbst-anzeigend) |
 | `pc.wake` | state-change (LAN-Wake-Endpoint) | **ja** |
 | `pc.sleep` | state-change | **ja** |
 | `pc.run_script` | state-change, nur Skript-Whitelist (`optimize-all`, `spotify-autosort`, `optimize-gaming`, `optimize-obs`) | **ja** |
 
 `pc.screenshot` ist die erste Erweiterung nach dem Beispiel-2-Muster des Cockpit-Skills — Worker-seitig fertig, wartet wie alle `pc.*`-Aktionen auf den Handler. Es ist zugleich der sensibelste Read: Wer den Shortcut-Token hat, sieht den Desktop. Bei Geräteverlust Token sofort rotieren.
+
+**Richtungsumkehr — das iPhone als Aktor:** `phone.*`-Aktionen führt nicht der Worker aus, sondern das iPhone selbst. Sie landen in einer Outbox (KV, max. 20 Einträge, 24 h TTL), die der Executor-Kurzbefehl „Cockpit Ausführen" per `GET /outbox` abholt (at-most-once — Abholung leert) und über explizite „Wenn"-Zweige ausführt. Damit existiert die Whitelist auch phone-seitig: Slugs ohne Zweig werden ignoriert. Bauanleitung: Abschnitt „Das iPhone als Aktor" in [`references/ios_shortcut_setup.md`](references/ios_shortcut_setup.md).
 
 Neue Aktion = immer drei Stufen, sonst stirbt sie am Guard: (1) Tool-Definition in `assets/worker/src/tools.js`, (2) Router-Case in `assets/worker/src/actions.js`, (3) Handler-Implementation. Slug-Format `zielsystem.verb`, jede Aktion mit `is_destructive`, `requires_confirmation`, `rollback`, idempotent, max. 15 s.
 
@@ -94,5 +99,6 @@ Wenn jemand — auch der Besitzer im Eifer — um einen Bypass bittet: nein, mit
 
 - iOS bricht nach ~60 s ab → Aktions-Timeout 15 s, Claude-Loop max. 3 Runden; Langläufer brauchen später ein Job-Muster mit Push.
 - Kurzbefehle können keine echten Notification-Buttons → Bestätigung läuft als Menü im selben Lauf; Push-Confirm ist Stufe-2-Ausbau.
+- iOS-UI-Fernsteuerung gibt es nicht — Apple-Plattformgrenze, für niemanden. Der Aktor-Pfad läuft über Outbox + Kurzbefehle; ausführbar ist nur, wofür der Executor einen „Wenn"-Zweig hat.
 - Kein Voice-Feedback über Siris Vorlesen der Mitteilung hinaus.
 - Der PC ist nur erreichbar, solange er läuft; `pc.wake` braucht einen LAN-seitigen Wake-Endpoint (Worker können kein UDP/WoL senden).

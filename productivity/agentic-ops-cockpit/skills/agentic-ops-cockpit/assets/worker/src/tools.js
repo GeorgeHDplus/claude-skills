@@ -114,6 +114,62 @@ export const TOOLS = [
     requires_confirmation: false,
     rollback: null,
   },
+
+  // phone.* — Aktionen, die das iPhone SELBST ausfuehrt: der Worker legt sie
+  // nur in die Outbox, der Executor-Kurzbefehl holt sie ab (GET /outbox) und
+  // fuehrt sie via Shortcuts-Aktionen aus. Bewusst nur benigne, selbst-
+  // anzeigende Aktionen ohne Bestaetigung — alles Staerkere (Nachrichten
+  // senden etc.) braucht requires_confirmation: true UND einen eigenen
+  // Wenn-Zweig im Executor.
+  {
+    slug: "phone.notify",
+    description:
+      "Zeigt eine Mitteilung auf dem iPhone an (wird ueber die Outbox vom Executor-Kurzbefehl ausgefuehrt).",
+    input_schema: {
+      type: "object",
+      properties: {
+        title: { type: "string", description: "Optionaler Titel." },
+        text: { type: "string", description: "Mitteilungstext." },
+      },
+      required: ["text"],
+      additionalProperties: false,
+    },
+    is_destructive: false,
+    requires_confirmation: false,
+    rollback: null,
+  },
+  {
+    slug: "phone.play_playlist",
+    description:
+      "Spielt eine benannte Playlist auf dem iPhone ab (Apple Music oder Spotify, via Executor-Kurzbefehl).",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Playlist-Name, z.B. 'Fokus'." },
+      },
+      required: ["name"],
+      additionalProperties: false,
+    },
+    is_destructive: false,
+    requires_confirmation: false,
+    rollback: null,
+  },
+  {
+    slug: "phone.set_focus",
+    description:
+      "Aktiviert einen Fokus-Modus auf dem iPhone, z.B. 'Nicht stoeren' oder 'Arbeit' (via Executor-Kurzbefehl).",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Name des Fokus-Modus." },
+      },
+      required: ["name"],
+      additionalProperties: false,
+    },
+    is_destructive: false,
+    requires_confirmation: false,
+    rollback: null,
+  },
 ];
 
 export const bySlug = (slug) => TOOLS.find((t) => t.slug === slug);
