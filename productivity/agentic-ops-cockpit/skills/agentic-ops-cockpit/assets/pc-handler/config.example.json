@@ -1,0 +1,17 @@
+{
+  "port": 8787,
+  "cockpit_home": "%USERPROFILE%\\cockpit",
+  "hmac_window_seconds": 90,
+  "action_timeout_seconds": 15,
+  "scripts": {
+    "optimize-all": "%USERPROFILE%\\ops\\Optimize-All.ps1",
+    "spotify-autosort": "%USERPROFILE%\\ops\\AutoSort-Spotify.py",
+    "optimize-gaming": "%USERPROFILE%\\ops\\Optimize-Gaming.ps1",
+    "optimize-obs": "%USERPROFILE%\\ops\\Optimize-OBS.ps1"
+  },
+  "screenshot": {
+    "format": "jpeg",
+    "jpeg_quality": 70,
+    "max_width": 1600
+  }
+}

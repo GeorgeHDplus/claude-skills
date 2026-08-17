@@ -55,23 +55,25 @@ Jedes System ist unabhängig; nicht Konfiguriertes antwortet ehrlich mit `not_co
 
 Vars stehen in `wrangler.toml`, Secrets ausschließlich via `wrangler secret put`. `summary.day` aggregiert automatisch alles, was konfiguriert ist.
 
-## Schritt 5 — PC-Handler anbinden (separater Ausbau, nicht Teil des iOS-Zugriffs)
+## Schritt 5 — PC-Handler anbinden (macht die `pc.*`-Aktionen real)
 
-Erst wenn der PC-Handler auf dem Windows-Rechner steht:
+Der Handler liegt fertig bei: [`../assets/pc-handler/`](../assets/pc-handler/) (PowerShell, User-Rechte, `START-HIER.bat`). Vollständige Setup- und Test-Anleitung: [`../assets/pc-handler/README.md`](../assets/pc-handler/README.md). Kurz:
 
-1. Cloudflare Tunnel auf dem PC einrichten, Access-Policy „nur diese Worker-Route".
-2. `PC_HANDLER_URL` in `wrangler.toml` auf die Tunnel-URL setzen.
-3. `npx wrangler secret put PC_HMAC_SECRET` (Wert aus Schritt 1; auf dem PC nach `%COCKPIT_HOME%\secret.key`, ACL nur für den User).
-4. `pc.wake` extra: Worker können kein UDP/Wake-on-LAN ins LAN senden, und der Handler schläft ja gerade. `PC_WAKE_WEBHOOK_URL` auf einen LAN-seitigen Wake-Endpoint zeigen lassen (Router-API, Raspberry Pi, Home Assistant Webhook).
+1. Handler-Verzeichnis auf den Windows-PC kopieren; `config.json` aus `config.example.json` anlegen und die 4 Skript-Pfade eintragen.
+2. `PC_HMAC_SECRET` (aus Schritt 1) nach `%COCKPIT_HOME%\secret.key` schreiben, ACL nur für den User (`icacls … /grant:r "$env:USERNAME:(R)"`).
+3. `START-HIER.bat` starten (nicht als Admin). Ersten Kontakt lokal testen — `curl` gegen `127.0.0.1:8787`, signiert via `scripts/hmac_test_vector.py --secret … --ts now --curl` (siehe Handler-README).
+4. Cloudflare Tunnel auf dem PC einrichten, Access-Policy „nur diese Worker-Route", auf `http://127.0.0.1:8787` zeigen lassen.
+5. `PC_HANDLER_URL` in `wrangler.toml` auf die Tunnel-URL setzen; `npx wrangler secret put PC_HMAC_SECRET` (derselbe Wert wie in `secret.key`).
+6. `pc.wake` extra: Worker können kein UDP/Wake-on-LAN ins LAN senden, und der Handler schläft ja gerade. `PC_WAKE_WEBHOOK_URL` auf einen LAN-seitigen Wake-Endpoint zeigen lassen (Router-API, Raspberry Pi, Home Assistant Webhook).
 
-**Kontrakt, den der Handler erfüllen muss** (`POST /action`):
+**Kontrakt, den der mitgelieferte Handler erfüllt** (`POST /action`):
 
 - Header `x-cockpit-timestamp` (Unix-Sekunden) und `x-cockpit-signature` = HMAC-SHA256(`PC_HMAC_SECRET`, `"<timestamp>.<raw-body>"`), hex
 - Body `{"action": "pc.sleep", "params": {…}, "trace_id": "…"}`
-- Handler prüft: Signatur, |now − timestamp| ≤ 90 s (Replay-Fenster), Kill-Switch-Datei, Aktion in **seiner eigenen** Whitelist — dann erst ausführen
-- Antwort `{"status": "ok", …}` bzw. 401 (Signatur), 403 (nicht in Whitelist), 503 (Kill-Switch)
+- Handler prüft: Kill-Switch-Datei (→ 503), |now − timestamp| ≤ 90 s (Replay-Fenster, → 401), Signatur über den **rohen** Body (→ 401), Aktion in **seiner eigenen** Whitelist (→ 403) — dann erst ausführen
+- Antwort `{"status": "ok", …}` bzw. 401/403/503
 
-Details: [`security_model.md`](security_model.md).
+Details: [`security_model.md`](security_model.md). Die Signatur-Kompatibilität ist per Testvektor gegen den echten Worker-Code abgesichert: `python3 scripts/hmac_test_vector.py` (Self-Check muss PASS sein).
 
 ## Schritt 6 — Deploy + Smoke
 

@@ -13,7 +13,7 @@ metadata:
 
 iPhone-gesteuerter Autopilot für den eigenen Stack: ein Satz zu Siri („Hey Siri, Cockpit Feierabend"), und die Kette **Kurzbefehl → Cloudflare Worker → Claude API → Action Router → Zielsystem** führt Whitelist-Aktionen aus — Reads sofort, alles andere erst nach Bestätigung am iPhone (Observer-Mode, Stufe 1).
 
-Dieses Paket ist die **Implementierung der iOS-Zugriffsschicht**: deploybarer Worker, exakte Kurzbefehl-Bauanleitung, Secrets-Tooling, Smoke-Tests. Der PC-Handler (PowerShell auf Windows) ist ein separater, nachgelagerter Ausbau — die iOS-Kette funktioniert vorher schon vollständig mit den Cloud-Aktionen.
+Dieses Paket ist die **Implementierung der iOS-Zugriffsschicht**: deploybarer Worker, exakte Kurzbefehl-Bauanleitung, Secrets-Tooling, Smoke-Tests — plus der mitgelieferte **PC-Handler** (`assets/pc-handler/`, PowerShell), der die `pc.*`-Aktionen real macht. Die iOS-Kette funktioniert auch ohne den Handler vollständig mit den Cloud-Aktionen; die `pc.*`-Aktionen antworten bis zum Handler-Setup mit `not_configured`.
 
 ## Signalkette
 
@@ -87,13 +87,15 @@ Wenn jemand — auch der Besitzer im Eifer — um einen Bypass bittet: nein, mit
 
 | Pfad | Inhalt |
 |---|---|
-| `assets/worker/` | Deploybarer Zero-Dependency-Worker (`/ask`, `/confirm`, `/health`) |
+| `assets/worker/` | Deploybarer Zero-Dependency-Worker (`/ask`, `/confirm`, `/health`, `/outbox`) |
+| `assets/pc-handler/` | Windows-PowerShell-Handler (HMAC, Kill-Switch, Whitelist, `START-HIER.bat`) — macht die `pc.*`-Aktionen real |
 | `references/ios_shortcut_setup.md` | Kurzbefehl-Bauanleitung Aktion für Aktion, Siri, Action Button, Troubleshooting |
 | `references/worker_deployment.md` | Deploy in 6 Schritten, Zielsystem-Anbindung, PC-Handler-Kontrakt |
 | `references/security_model.md` | Guard→Code-Mapping, HMAC-Spec, Rotation, Threat-Model |
 | `scripts/generate_secrets.py` | 32-Byte-Secrets + Ablage-/Rotations-Anweisungen |
-| `scripts/cockpit_smoketest.py` | Health/Auth/E2E-Checks gegen den deployten Worker |
+| `scripts/cockpit_smoketest.py` | Health/Auth/E2E/Outbox-Checks gegen den deployten Worker |
 | `scripts/shortcut_payload_builder.py` | Referenz des Request-Kontrakts, curl-Generator |
+| `scripts/hmac_test_vector.py` | Testvektor für die Worker↔Handler-Signatur (Self-Check + curl-Signierer) |
 
 ## Grenzen (ehrlich)
 
@@ -102,3 +104,4 @@ Wenn jemand — auch der Besitzer im Eifer — um einen Bypass bittet: nein, mit
 - iOS-UI-Fernsteuerung gibt es nicht — Apple-Plattformgrenze, für niemanden. Der Aktor-Pfad läuft über Outbox + Kurzbefehle; ausführbar ist nur, wofür der Executor einen „Wenn"-Zweig hat.
 - Kein Voice-Feedback über Siris Vorlesen der Mitteilung hinaus.
 - Der PC ist nur erreichbar, solange er läuft; `pc.wake` braucht einen LAN-seitigen Wake-Endpoint (Worker können kein UDP/WoL senden).
+- Die PowerShell-Skripte des Handlers laufen nicht in der CI (kein Windows dort) — die HMAC-Kompatibilität ist per Testvektor abgesichert, der Handler selbst wird beim ersten Start auf dem PC per `curl`-Test verifiziert.

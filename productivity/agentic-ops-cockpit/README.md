@@ -13,14 +13,21 @@ agentic-ops-cockpit/
 │   ├── assets/worker/                    # Deploybarer Cloudflare Worker (zero-dependency)
 │   │   ├── wrangler.toml                 #   dev + prod Environments, KV, Vars
 │   │   └── src/{index,tools,guard,actions,claude}.js
+│   ├── assets/pc-handler/                # Windows-PowerShell-Handler (User-Rechte)
+│   │   ├── START-HIER.bat                #   Launcher (kein Admin)
+│   │   ├── cockpit-handler.ps1           #   Listener: HMAC, Kill-Switch, Whitelist, Log
+│   │   ├── lib/hmac.ps1                  #   Signatur-Gegenstück zu guard.js
+│   │   ├── actions/pc.{status,sleep,run_script,screenshot}.ps1
+│   │   └── config.example.json           #   Port, cockpit_home, Skript-Map
 │   ├── references/
 │   │   ├── ios_shortcut_setup.md         # Kurzbefehle Aktion für Aktion + Siri + Action Button
 │   │   ├── worker_deployment.md          # Deploy in 6 Schritten + PC-Handler-Kontrakt
 │   │   └── security_model.md             # Guard→Code-Mapping, HMAC-Spec, Rotation, Threat-Model
 │   └── scripts/
 │       ├── generate_secrets.py           # SHORTCUT_TOKEN + PC_HMAC_SECRET (32 Byte)
-│       ├── cockpit_smoketest.py          # Health/Auth/E2E gegen den deployten Worker
-│       └── shortcut_payload_builder.py   # Request-Kontrakt-Referenz + curl-Generator
+│       ├── cockpit_smoketest.py          # Health/Auth/E2E/Outbox gegen den deployten Worker
+│       ├── shortcut_payload_builder.py   # Request-Kontrakt-Referenz + curl-Generator
+│       └── hmac_test_vector.py           # Worker↔Handler-Signatur: Self-Check + curl-Signierer
 ├── agents/cs-ops-cockpit.md              # Persona: Cockpit-Operator (Guard-treu)
 └── commands/cs-cockpit.md                # /cs:cockpit
 ```
@@ -53,9 +60,10 @@ Whitelist mit 12 Aktionen (`zielsystem.verb`), hart kodiert in Worker **und** (s
 
 ## Status + Roadmap
 
-- ✅ **v1 (dieses Paket):** iOS-Zugriff end-to-end — Worker, Kurzbefehle, Siri, 5 Cloud-Aktionen live, PC-Aktionen als sauberes `not_configured` bis der Handler steht
+- ✅ **v1 (dieses Paket):** iOS-Zugriff end-to-end — Worker, Kurzbefehle, Siri, 5 Cloud-Aktionen live
 - ✅ **Outbox — das iPhone als Aktor:** `phone.notify` / `phone.play_playlist` / `phone.set_focus` werden gequeued und vom Executor-Kurzbefehl „Cockpit Ausführen" phone-seitig ausgeführt
-- ⬜ PC-Handler (PowerShell, HMAC-Verifikation, eigene Whitelist, Kill-Switch) + Cloudflare Tunnel
+- ✅ **PC-Handler (PowerShell):** HMAC-Verifikation, eigene Whitelist, Kill-Switch, `START-HIER.bat` — `pc.status/sleep/run_script/screenshot` real; Signatur per Testvektor gegen den Worker abgesichert
+- ⬜ Cloudflare Tunnel + R2-URL-Variante für Screenshots (statt Base64)
 - ⬜ Push-Confirm statt Menü (actionable Notifications via Job-Muster)
 - ⬜ Kalender-Quelle für `summary.day`
 - ⬜ Stufe 2: Selective Autonomy für nachweislich fehlerfreie, nicht-destruktive Aktionen
