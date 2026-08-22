@@ -1,0 +1,22 @@
+# cloudflared-Config fuer den Cockpit-PC-Handler.
+# Ablage auf dem PC: %USERPROFILE%\.cloudflared\config.yml
+# tunnel + credentials-file fuellt setup-cloudflared.ps1 automatisch.
+#
+# Der Tunnel baut eine AUSGEHENDE Verbindung zu Cloudflare auf — kein offener
+# Port, keine Portfreigabe im Router. Der Handler bleibt auf 127.0.0.1 gebunden;
+# nur cloudflared spricht ihn lokal an.
+
+tunnel: REPLACE_WITH_TUNNEL_ID
+credentials-file: C:\Users\%USERNAME%\.cloudflared\REPLACE_WITH_TUNNEL_ID.json
+
+# Ingress: nur der Cockpit-Hostname -> lokaler Handler. Alles andere 404.
+# Die eigentliche Zugangskontrolle macht Cloudflare Access DAVOR (Service Token),
+# nicht diese Datei — siehe references/cloudflare_tunnel.md.
+ingress:
+  - hostname: cockpit-pc.example.com
+    service: http://127.0.0.1:8787
+    originRequest:
+      connectTimeout: 10s
+      # Handler-Aktionen sind auf 15s gedeckelt; etwas Luft fuer den Round-Trip.
+      httpHostHeader: cockpit-pc.example.com
+  - service: http_status:404

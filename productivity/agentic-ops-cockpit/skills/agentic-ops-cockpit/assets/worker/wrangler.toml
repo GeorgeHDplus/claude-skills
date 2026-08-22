@@ -1,0 +1,56 @@
+# Agentic Ops Cockpit — Cloudflare Worker
+# Deploy: npx wrangler deploy            (prod)
+#         npx wrangler deploy --env dev  (dev — eigener Shortcut zum Testen)
+# Secrets werden NIE hier eingetragen — nur via `npx wrangler secret put <NAME>`:
+#   ANTHROPIC_API_KEY   (Pflicht)
+#   SHORTCUT_TOKEN      (Pflicht — Bearer-Token des iPhone-Shortcuts)
+#   PC_HMAC_SECRET      (optional — erst wenn PC-Handler steht)
+#   CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET  (optional, empfohlen —
+#                       Cloudflare Access Service Token vor dem Tunnel;
+#                       references/cloudflare_tunnel.md)
+#   DATADOG_API_KEY / DATADOG_APP_KEY          (optional)
+#   JIRA_EMAIL / JIRA_API_TOKEN                (optional)
+#   SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET / SPOTIFY_REFRESH_TOKEN  (optional)
+
+name = "cockpit-worker"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+# KV: Pflicht für Confirm-Flow (Pending-Aktionen) + Rate-Limit.
+# Anlegen: npx wrangler kv namespace create COCKPIT_KV
+# Die ausgegebene id hier eintragen.
+[[kv_namespaces]]
+binding = "COCKPIT_KV"
+id = "REPLACE_WITH_KV_ID"
+
+[vars]
+# Original-Spec nannte Sonnet 4.6 — frei wählbar, Default ist das aktuelle Sonnet.
+CLAUDE_MODEL = "claude-sonnet-5"
+# observer = Vorschlag + Bestätigung (Stufe 1). Stufe 2 ("auto" je Aktion) erst
+# nach 30 fehlerfreien Läufen — siehe references/security_model.md.
+COCKPIT_MODE = "observer"
+# EU-Org? Dann "datadoghq.eu".
+DD_SITE = "datadoghq.com"
+# Jira-Cloud-Basis-URL, z.B. "https://<org>.atlassian.net" (kein Secret, daher Var).
+JIRA_BASE_URL = ""
+# Cloudflare-Tunnel-URL zum PC-Handler, z.B. "https://cockpit-pc.<domain>".
+# Leer lassen bis der PC-Handler steht — pc.* antwortet dann mit not_configured.
+PC_HANDLER_URL = ""
+# Worker können kein UDP/WoL ins LAN senden. pc.wake braucht einen LAN-seitigen
+# Wake-Endpoint (Router / Pi / Home Assistant Webhook).
+PC_WAKE_WEBHOOK_URL = ""
+
+[env.dev]
+name = "cockpit-worker-dev"
+
+  [[env.dev.kv_namespaces]]
+  binding = "COCKPIT_KV"
+  id = "REPLACE_WITH_DEV_KV_ID"
+
+  [env.dev.vars]
+  CLAUDE_MODEL = "claude-sonnet-5"
+  COCKPIT_MODE = "observer"
+  DD_SITE = "datadoghq.com"
+  JIRA_BASE_URL = ""
+  PC_HANDLER_URL = ""
+  PC_WAKE_WEBHOOK_URL = ""
