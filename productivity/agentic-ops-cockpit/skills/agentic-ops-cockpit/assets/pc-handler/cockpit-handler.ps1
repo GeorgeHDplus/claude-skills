@@ -62,12 +62,19 @@ function Send-Json {
     $Context.Response.OutputStream.Close()
 }
 
+# secret.key wird pro Request FRISCH gelesen (nicht beim Start gecacht), damit
+# eine HMAC-Rotation ohne Handler-Neustart greift — so wie security_model.md es
+# zusagt. Der Datei-Read pro Request ist bei diesem Volumen vernachlaessigbar.
+function Get-CurrentSecret {
+    if (-not (Test-Path $SecretKey)) { return $null }
+    return (Get-Content $SecretKey -Raw).Trim()
+}
+
 # --- Sicherheits-Checks beim Start ----------------------------------------
 if (-not (Test-Path $SecretKey)) {
     Write-Host "secret.key fehlt unter $SecretKey — mit generate_secrets.py erzeugen (PC_HMAC_SECRET)." -ForegroundColor Red
     exit 1
 }
-$Secret = (Get-Content $SecretKey -Raw).Trim()
 
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
           ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
@@ -78,9 +85,22 @@ if ($isAdmin) {
 }
 
 # --- Listener --------------------------------------------------------------
+# HttpListener nutzt HTTP.sys; ein normaler User kann das Prefix nur binden, wenn
+# einmalig eine URL-ACL reserviert wurde. Fehlt sie, wirft Start() 'access
+# denied' — dann den genauen netsh-Befehl ausgeben statt kryptisch abzubrechen.
 $listener = [System.Net.HttpListener]::new()
 $listener.Prefixes.Add("http://127.0.0.1:$Port/")
-$listener.Start()
+try {
+    $listener.Start()
+} catch [System.Net.HttpListenerException] {
+    $acct = "$env:USERDOMAIN\$env:USERNAME"
+    Write-Host "HttpListener konnte http://127.0.0.1:$Port/ nicht binden (URL-ACL fehlt)." -ForegroundColor Red
+    Write-Host "Einmalig in einer ADMIN-Shell reservieren (nur fuer dich):" -ForegroundColor Yellow
+    Write-Host "  netsh http add urlacl url=http://127.0.0.1:$Port/ user=$acct" -ForegroundColor Yellow
+    Write-Host "Danach START-HIER.bat erneut ausfuehren (ohne Admin)." -ForegroundColor Yellow
+    Write-Log @{ event = 'listener_bind_failed'; error = $_.Exception.Message }
+    exit 1
+}
 Write-Host "Cockpit-Handler laeuft auf http://127.0.0.1:$Port/  (Strg+C beendet)" -ForegroundColor Green
 Write-Log @{ event = 'start'; port = $Port }
 
@@ -120,7 +140,13 @@ try {
                 continue
             }
 
-            $expected = Get-CockpitHmac -Secret $Secret -Message ("{0}.{1}" -f $ts, $raw)
+            $secret = Get-CurrentSecret
+            if (-not $secret) {
+                Send-Json $ctx 500 @{ status = 'error'; error = 'secret_unavailable' }
+                Write-Log @{ event = 'error'; reason = 'secret_missing' }
+                continue
+            }
+            $expected = Get-CockpitHmac -Secret $secret -Message ("{0}.{1}" -f $ts, $raw)
             if (-not $sig -or -not (Test-CockpitHmacEqual -Expected $expected -Actual $sig)) {
                 Send-Json $ctx 401 @{ error = 'bad_signature' }
                 Write-Log @{ event = 'auth'; verdict = 401; reason = 'signature' }

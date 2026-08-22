@@ -64,16 +64,30 @@ async function callPcHandler(env, action, params, traceId) {
     return { status: "kill_switch", hint: "KILL-Datei auf dem PC aktiv — Handler antwortet nicht." };
   }
   if (!res.ok) {
-    // Handler-Fehler kommen als JSON; Cloudflare Access weist am Edge mit HTML
-    // ab (der Request erreicht den Handler nie) — daran unterscheidbar.
+    // Handler-Fehler kommen als JSON; die Edge antwortet mit HTML. Zwei Nicht-
+    // JSON-Fälle sauber trennen (sonst wird ein Handler-down-502 fälschlich als
+    // Access-Problem gemeldet):
     const ctype = res.headers.get("content-type") || "";
-    if (!ctype.includes("application/json")) {
+    const nonJson = !ctype.includes("application/json");
+    if (nonJson && (res.status === 401 || res.status === 403)) {
+      // Cloudflare Access weist am Edge ab — der Request erreicht den Handler nie.
       return {
         status: "access_denied",
         http: res.status,
         hint:
           "Von Cloudflare Access abgewiesen (nicht vom Handler) — CF_ACCESS_CLIENT_ID/SECRET " +
           "und die Access-Policy prüfen: references/cloudflare_tunnel.md.",
+      };
+    }
+    if (nonJson) {
+      // z.B. 502/504/523/524: Tunnel steht, aber der Origin (Handler) antwortet
+      // nicht — der in cloudflare_tunnel.md dokumentierte Handler-down-Fall.
+      return {
+        status: "origin_unreachable",
+        http: res.status,
+        hint:
+          "PC-Handler nicht erreichbar (Tunnel ok, Origin antwortet nicht) — Handler mit " +
+          "START-HIER.bat starten: references/cloudflare_tunnel.md.",
       };
     }
     throw new Error(`PC-Handler HTTP ${res.status}`);

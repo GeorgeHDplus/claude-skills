@@ -33,6 +33,14 @@ icacls "$home\secret.key" /inheritance:r /grant:r "$($env:USERNAME):(R)"
 .\START-HIER.bat
 ```
 
+**Falls `START-HIER.bat` mit „URL-ACL fehlt" (`HttpListenerException`) abbricht:** Windows lässt einen Nicht-Admin das HTTP.sys-Prefix nur binden, wenn es einmal reserviert wurde. Der Handler gibt dann den genauen Befehl aus — einmalig in einer **Admin**-Shell, danach wieder ohne Admin starten:
+
+```powershell
+netsh http add urlacl url=http://127.0.0.1:8787/ user=%USERDOMAIN%\%USERNAME%
+```
+
+(Nur nötig, wenn der Bind fehlschlägt — auf vielen Systemen geht der Loopback-Prefix auch ohne Reservierung.)
+
 Dann den Cloudflare Tunnel auf `http://127.0.0.1:8787` zeigen lassen und im Worker `PC_HANDLER_URL` + `PC_HMAC_SECRET` setzen — Schritt 5 in [`../../references/worker_deployment.md`](../../references/worker_deployment.md).
 
 ## Ersten Kontakt testen (ohne iPhone, ohne Worker)

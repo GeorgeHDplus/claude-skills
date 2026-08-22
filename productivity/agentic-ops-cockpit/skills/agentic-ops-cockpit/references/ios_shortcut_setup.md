@@ -125,11 +125,22 @@ Empfohlene drei:
 | `Cockpit Feierabend` | `Feierabend` |
 | `Cockpit Status` | `Wie geht es dem PC? Status bitte.` |
 | `Cockpit Tages-Summary` | `Tages-Summary` |
-| `Cockpit Bildschirm` | `Mach einen Screenshot vom PC` |
 
 „Hey Siri, Cockpit Feierabend" läuft dann ohne jede Rückfrage bis zum Bestätigungs-Menü für `pc.sleep`.
 
-Zum Screenshot: Sobald der PC-Handler steht, enthält die Antwort eine kurzlebige Bild-URL (bzw. Base64-PNG) — sie erscheint in der Mitteilung und lässt sich antippen. Wer es komfortabler will, hängt im „Andernfalls"-Zweig eine **„Wenn"**-Prüfung auf den Schlüssel `url` an und zeigt das Bild direkt mit **„Inhalt der URL abrufen"** + **„Übersicht"** (Quick Look). Bis der Handler existiert, antwortet die Aktion mit `not_configured`.
+### Screenshot anzeigen (eigener Kurzbefehl „Cockpit Bildschirm")
+
+Ein Screenshot ist kein Text — der generische „Cockpit"-Kurzbefehl zeigt nur `reply` und würde das Bild **nicht** darstellen. Das Bild steckt in der `/ask`-Antwort unter `results` → dem Element mit `action = pc.screenshot` → `result.image_base64` (Base64-JPEG). Dafür ein eigener Mini-Kurzbefehl mit Bild-Flow:
+
+1. **„Inhalt der URL abrufen"** — `POST …/ask` mit Header + Body wie im Haupt-Kurzbefehl, Prompt fest: `Mach einen Screenshot vom primären Monitor` (für den zweiten: „… vom sekundären Monitor").
+2. **„Wörterbuchwert abrufen"** — Schlüssel `results` aus „Inhalt der URL" → Liste.
+3. **„Wiederhole mit jedem"** über `results`:
+   - **„Wörterbuchwert abrufen"** Schlüssel `result` aus dem Wiederholungselement, dann erneut **„Wörterbuchwert abrufen"** Schlüssel `image_base64`.
+   - **„Wenn"** „hat einen Wert" → **„Variable festlegen"** `Bild64`.
+4. **„Base64 codieren"** mit Umschalter auf **Decodieren** angewandt auf `Bild64` → Bilddaten.
+5. **„Schnellansicht"** (Quick Look) auf die Bilddaten → zeigt den Screenshot.
+
+Bis der PC-Handler steht, kommt `not_configured` zurück und `Bild64` bleibt ungesetzt — dann als Fallback eine Mitteilung mit `reply` zeigen. (Base64 hält die Payload klein: `screenshot.jpeg_quality`/`max_width` in der Handler-`config.json` steuern die Größe; die R2-URL-Variante ist in der Handler-README beschrieben.)
 
 ### Schneller Zugriff ohne Siri
 

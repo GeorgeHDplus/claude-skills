@@ -37,10 +37,26 @@ function Assert-Cloudflared {
 
 Assert-Cloudflared
 
+# Native Executables setzen unter PowerShell 5.1 KEINE terminating errors bei
+# Nonzero-Exit (auch nicht mit $ErrorActionPreference='Stop'). Daher nach jedem
+# cloudflared-Aufruf $LASTEXITCODE pruefen — sonst meldet das Skript faelschlich
+# "Tunnel steht", obwohl ein Schritt fehlschlug.
+function Test-CfdExit {
+    param([Parameter(Mandatory)][string]$What, [switch]$Tolerant)
+    if ($LASTEXITCODE -ne 0) {
+        if ($Tolerant) {
+            Write-Host "  ${What}: exit $LASTEXITCODE — toleriert (vermutlich bereits vorhanden)." -ForegroundColor DarkGray
+        } else {
+            throw "${What} schlug fehl (cloudflared exit $LASTEXITCODE)."
+        }
+    }
+}
+
 # 1. Login (oeffnet Browser; Zone auswaehlen). cert.pem landet in $cfDir.
 if (-not (Test-Path (Join-Path $cfDir 'cert.pem'))) {
     Write-Host "Login noetig — Browser oeffnet sich, waehle die Zone von $Hostname ..." -ForegroundColor Cyan
     cloudflared tunnel login
+    Test-CfdExit 'tunnel login'
 } else {
     Write-Host "cert.pem vorhanden — Login uebersprungen." -ForegroundColor DarkGray
 }
@@ -54,6 +70,7 @@ if ($existing) {
 } else {
     Write-Host "Lege Tunnel '$TunnelName' an ..." -ForegroundColor Cyan
     cloudflared tunnel create $TunnelName | Out-Null
+    Test-CfdExit 'tunnel create'
     $tunnelId = ((cloudflared tunnel list --output json | ConvertFrom-Json) |
         Where-Object { $_.name -eq $TunnelName } | Select-Object -First 1).id
 }
@@ -72,20 +89,23 @@ $content = $content -replace '(?m)^credentials-file:.*$', "credentials-file: $cr
 Set-Content -Path $configOut -Value $content -Encoding UTF8
 Write-Host "config.yml geschrieben: $configOut" -ForegroundColor Green
 
-# 4. DNS-Route (CNAME auf den Tunnel). Idempotent — Fehler bei bestehender Route ignorieren.
+# 4. DNS-Route (CNAME auf den Tunnel). Bei bestehender Route endet cloudflared
+#    mit Nonzero — das ist tolerierbar (idempotent).
 Write-Host "Setze DNS-Route $Hostname -> Tunnel ..." -ForegroundColor Cyan
-try { cloudflared tunnel route dns $TunnelName $Hostname | Out-Null }
-catch { Write-Host "  Route existiert vermutlich schon — ok." -ForegroundColor DarkGray }
+cloudflared tunnel route dns $TunnelName $Hostname | Out-Null
+Test-CfdExit 'tunnel route dns' -Tolerant
 
-# 5. Ingress validieren.
+# 5. Ingress validieren — ein Fehler hier ist ECHT (falsche config), also werfen.
 cloudflared tunnel ingress validate --config $configOut
+Test-CfdExit 'tunnel ingress validate'
 
 # 6. Als Dienst installieren (Autostart). Braucht Admin -> in elevated Shell erneut aufrufen.
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
           ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if ($isAdmin) {
     Write-Host "Installiere cloudflared als Dienst (Autostart) ..." -ForegroundColor Cyan
-    try { cloudflared service install } catch { Write-Host "  Dienst evtl. schon installiert — ok." -ForegroundColor DarkGray }
+    cloudflared service install
+    Test-CfdExit 'service install' -Tolerant   # bereits installiert -> Nonzero ok
     Start-Service cloudflared -ErrorAction SilentlyContinue
 } else {
     Write-Host "Dienst-Installation uebersprungen (kein Admin)." -ForegroundColor Yellow

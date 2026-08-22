@@ -19,6 +19,45 @@ export class GuardError extends Error {
   }
 }
 
+// Runtime-Validierung gegen die input_schema — Tool-Schemas leiten das Modell,
+// sind aber KEINE Laufzeitgrenze. Halluzinierte/manipulierte Parameter (leerer
+// phone.notify.text, non-numerisches pc.screenshot.display) werden hier
+// abgewiesen, bevor sie den Handler oder die Outbox erreichen.
+function validateInput(tool, params) {
+  const schema = tool.input_schema || {};
+  const props = schema.properties || {};
+  const required = schema.required || [];
+  const p = params && typeof params === "object" ? params : {};
+
+  for (const key of required) {
+    const v = p[key];
+    const emptyString = typeof v === "string" && v.trim() === "";
+    if (v === undefined || v === null || emptyString) {
+      throw new GuardError(`Pflicht-Parameter '${key}' fehlt oder ist leer (Aktion '${tool.slug}').`);
+    }
+  }
+  if (schema.additionalProperties === false) {
+    for (const key of Object.keys(p)) {
+      if (!(key in props)) {
+        throw new GuardError(`Unbekannter Parameter '${key}' für Aktion '${tool.slug}'.`);
+      }
+    }
+  }
+  for (const [key, spec] of Object.entries(props)) {
+    const v = p[key];
+    if (v === undefined) continue;
+    if (spec.type === "string" && typeof v !== "string") {
+      throw new GuardError(`Parameter '${key}' muss ein String sein (Aktion '${tool.slug}').`);
+    }
+    if (spec.type === "integer" && !Number.isInteger(v)) {
+      throw new GuardError(`Parameter '${key}' muss eine ganze Zahl sein (Aktion '${tool.slug}').`);
+    }
+    if (Array.isArray(spec.enum) && !spec.enum.includes(v)) {
+      throw new GuardError(`Parameter '${key}' ist nicht erlaubt (erwartet: ${spec.enum.join(", ")}).`);
+    }
+  }
+}
+
 // Regel 1+2: ausschließlich Whitelist-Aktionen mit validierten Parametern.
 // Freitext-Kommandos existieren im Datenmodell schlicht nicht.
 export function assertAllowed(slug, params = {}) {
@@ -26,6 +65,8 @@ export function assertAllowed(slug, params = {}) {
   if (!tool) {
     throw new GuardError(`Aktion '${slug}' steht nicht in der Whitelist.`);
   }
+  validateInput(tool, params);
+  // Redundant zur enum-Prüfung in validateInput — bewusst doppelt (Guard-Prinzip).
   if (tool.slug === "pc.run_script" && !SCRIPT_WHITELIST.includes(params.script)) {
     throw new GuardError(
       `Skript '${params.script}' steht nicht in der Skript-Whitelist.`

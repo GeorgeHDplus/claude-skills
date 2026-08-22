@@ -38,18 +38,21 @@ agentic-ops-cockpit/
 ## Quickstart
 
 ```bash
-# 1. Secrets
+# 1. Secrets (aus dem Skill-Verzeichnis — hier liegt scripts/)
 python3 skills/agentic-ops-cockpit/scripts/generate_secrets.py
 
-# 2. Worker deployen (KV anlegen, Secrets setzen — Details: references/worker_deployment.md)
-cp -r skills/agentic-ops-cockpit/assets/worker ~/cockpit-worker && cd ~/cockpit-worker
-npx wrangler kv namespace create COCKPIT_KV        # ID in wrangler.toml eintragen
-npx wrangler secret put ANTHROPIC_API_KEY
-npx wrangler secret put SHORTCUT_TOKEN
-npx wrangler deploy --env dev
+# 2. Worker deployen — dev-first, durchgängig dev-konsistent.
+#    Die wrangler-Befehle laufen in der Worker-Kopie, die python-Helfer im Skill.
+cp -r skills/agentic-ops-cockpit/assets/worker ~/cockpit-worker
+( cd ~/cockpit-worker
+  npx wrangler kv namespace create COCKPIT_KV --env dev   # ID als env.dev-Binding in wrangler.toml
+  npx wrangler secret put ANTHROPIC_API_KEY --env dev
+  npx wrangler secret put SHORTCUT_TOKEN --env dev
+  npx wrangler deploy --env dev )
 
-# 3. Verifizieren, BEVOR das iPhone ins Spiel kommt
-python3 …/scripts/cockpit_smoketest.py --url https://cockpit-worker-dev.<sub>.workers.dev --token <TOKEN>
+# 3. Verifizieren, BEVOR das iPhone ins Spiel kommt (wieder aus dem Skill-Verzeichnis)
+python3 skills/agentic-ops-cockpit/scripts/cockpit_smoketest.py \
+  --url https://cockpit-worker-dev.<sub>.workers.dev --token <DEV_TOKEN>
 
 # 4. Kurzbefehle + Siri bauen
 #    -> references/ios_shortcut_setup.md (Aktion für Aktion, inkl. Troubleshooting)

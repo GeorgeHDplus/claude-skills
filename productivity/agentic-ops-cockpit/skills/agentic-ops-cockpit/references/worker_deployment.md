@@ -7,14 +7,15 @@ Der Worker in [`../assets/worker/`](../assets/worker/) ist die Gegenstelle des i
 - Cloudflare-Account (Free-Plan reicht für Stufe 1)
 - Node 18+ (`npx wrangler` lädt die CLI on demand), `npx wrangler login` einmal ausgeführt
 - Anthropic-API-Key (console.anthropic.com)
-- Worker-Verzeichnis irgendwohin kopieren, wo es leben soll — es ist als Template gedacht:
+- Zwei Verzeichnisse im Spiel: das **Skill-Verzeichnis** (enthält `scripts/`, `references/`, `assets/`) für die Helfer-Skripte, und eine **Kopie des Workers** als Deployment-Verzeichnis. Die `wrangler`-Befehle laufen in der Kopie, die `python3 scripts/…`-Helfer bleiben im Skill-Verzeichnis (nur dort liegt `scripts/`).
   ```bash
-  cp -r assets/worker ~/cockpit-worker && cd ~/cockpit-worker
+  cp -r assets/worker ~/cockpit-worker   # Deployment-Verzeichnis; NICHT hineinwechseln für die Helfer
   ```
 
 ## Schritt 1 — Secrets erzeugen
 
 ```bash
+# Aus dem Skill-Verzeichnis (hier liegt scripts/), nicht aus ~/cockpit-worker:
 python3 scripts/generate_secrets.py
 ```
 
@@ -22,7 +23,7 @@ Erzeugt `SHORTCUT_TOKEN` (iPhone → Worker) und `PC_HMAC_SECRET` (Worker → PC
 
 ## Schritt 2 — KV-Namespace anlegen
 
-KV trägt den Confirm-Flow (Pending-Aktionen, 60 s TTL) und das Rate-Limit. Ohne KV kein `needs_confirmation`-Pfad.
+KV trägt den Confirm-Flow (Pending-Aktionen, 60 s TTL) und das Rate-Limit. Ohne KV kein `needs_confirmation`-Pfad. Die `wrangler`-Befehle ab hier laufen im Deployment-Verzeichnis (`cd ~/cockpit-worker`).
 
 ```bash
 npx wrangler kv namespace create COCKPIT_KV
@@ -81,6 +82,7 @@ Details: [`security_model.md`](security_model.md). Die Signatur-Kompatibilität 
 npx wrangler deploy --env dev
 npx wrangler tail --env dev   # zweites Terminal: Audit-Log live
 
+# wieder aus dem Skill-Verzeichnis (hier liegt scripts/):
 python3 scripts/cockpit_smoketest.py \
   --url https://cockpit-worker-dev.<sub>.workers.dev \
   --token <DEV_SHORTCUT_TOKEN>

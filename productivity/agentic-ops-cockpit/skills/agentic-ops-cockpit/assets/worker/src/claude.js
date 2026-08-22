@@ -4,7 +4,7 @@
 
 import { anthropicTools, fromApiName, bySlug } from "./tools.js";
 import { execute } from "./actions.js";
-import { GUARD } from "./guard.js";
+import { GUARD, assertAllowed } from "./guard.js";
 
 const SYSTEM = [
   "Du bist der Action-Router von Georges Agentic Ops Cockpit.",
@@ -24,6 +24,7 @@ export async function interpret(prompt, env, traceId) {
   const results = [];
   const pending = [];
   let reply = "";
+  let synthesized = false; // true, sobald eine Runde reinen Text (kein tool_use) lieferte
 
   for (let round = 0; round < GUARD.MAX_CLAUDE_ROUNDS; round++) {
     const resp = await anthropicCall(env, messages);
@@ -35,7 +36,10 @@ export async function interpret(prompt, env, traceId) {
     if (text) reply = text;
 
     const toolUses = resp.content.filter((b) => b.type === "tool_use");
-    if (resp.stop_reason !== "tool_use" || toolUses.length === 0) break;
+    if (resp.stop_reason !== "tool_use" || toolUses.length === 0) {
+      synthesized = true;
+      break;
+    }
 
     const toolResults = [];
     for (const tu of toolUses) {
@@ -46,6 +50,14 @@ export async function interpret(prompt, env, traceId) {
         continue;
       }
       if (tool.requires_confirmation) {
+        // Parameter schon beim Enqueue validieren — ungültige Aktionen sollen
+        // gar nicht erst als pending gespeichert werden (Feedback direkt an Claude).
+        try {
+          assertAllowed(slug, tu.input ?? {});
+        } catch (e) {
+          toolResults.push(toolResult(tu.id, { status: "rejected", error: String(e.message) }, true));
+          continue;
+        }
         pending.push({ action: slug, params: tu.input ?? {} });
         toolResults.push(
           toolResult(tu.id, {
@@ -69,6 +81,25 @@ export async function interpret(prompt, env, traceId) {
     messages.push({ role: "user", content: toolResults });
   }
 
+  // Endete der Loop durch das Runden-Limit (letzte Runde war tool_use), fehlt
+  // die Text-Synthese der letzten Tool-Ergebnisse — reply wäre leer oder stale.
+  // Ein finaler Call OHNE Tools zwingt Claude, die Ergebnisse zusammenzufassen.
+  if (!synthesized) {
+    try {
+      const resp = await anthropicCall(env, messages, false);
+      const text = resp.content
+        .filter((b) => b.type === "text")
+        .map((b) => b.text)
+        .join("\n")
+        .trim();
+      if (text) reply = text;
+    } catch (e) {
+      // Synthese ist Best-Effort: schlägt sie fehl, bleibt die letzte
+      // Textantwort erhalten; die Aktionen sind bereits ausgeführt.
+      if (!reply) reply = "Aktionen ausgeführt — Details in results.";
+    }
+  }
+
   return { reply, results, pending };
 }
 
@@ -82,7 +113,16 @@ function toolResult(id, payload, isError = false) {
   return block;
 }
 
-async function anthropicCall(env, messages) {
+async function anthropicCall(env, messages, includeTools = true) {
+  const payload = {
+    model: env.CLAUDE_MODEL || "claude-sonnet-5",
+    max_tokens: 1024,
+    system: SYSTEM,
+    messages,
+  };
+  // Ohne Tools kann Claude keine weiteren Aktionen anfragen und muss
+  // synthetisieren — genutzt für den finalen Synthese-Call.
+  if (includeTools) payload.tools = anthropicTools();
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -90,13 +130,7 @@ async function anthropicCall(env, messages) {
       "anthropic-version": "2023-06-01",
       "content-type": "application/json",
     },
-    body: JSON.stringify({
-      model: env.CLAUDE_MODEL || "claude-sonnet-5",
-      max_tokens: 1024,
-      system: SYSTEM,
-      tools: anthropicTools(),
-      messages,
-    }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) {
     const detail = (await res.text()).slice(0, 300);

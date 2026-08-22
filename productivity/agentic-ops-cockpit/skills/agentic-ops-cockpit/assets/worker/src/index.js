@@ -107,7 +107,12 @@ async function handleConfirm(request, env, traceId) {
       410
     );
   }
-  // Vor der Ausführung löschen -> ein Confirm kann nie doppelt ausgeführt werden.
+  // Vor der Ausführung löschen — minimiert das Fenster für eine Doppelausführung
+  // stark. Ehrliche Grenze: KV get→delete ist NICHT atomar (eventual consistent);
+  // zwei exakt gleichzeitige /confirm könnten beide lesen, bevor einer löscht.
+  // Deshalb sind alle Cockpit-Aktionen idempotent ausgelegt (Skill-Konvention),
+  // sodass eine seltene Doppelausführung keinen zusätzlichen Schaden anrichtet.
+  // Strikte Exactly-once bräuchte ein Durable Object — siehe security_model.md.
   await env.COCKPIT_KV.delete(`pending:${confirmId}`);
 
   // Es wird ausschließlich der gespeicherte Zustand ausgeführt —
