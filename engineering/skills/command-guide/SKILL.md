@@ -48,7 +48,7 @@ graph TD
 | `/clear` | Start fresh conversation, clear history | `/clear` |
 | `/loop` | Periodic task execution, automated looping work | `/loop 5m check build status` |
 | `/help` | View help, learn commands | `/help` |
-| `/fast` | Need faster response (Opus 5 / Opus 4.8 only) | `/fast` |
+| `/fast` | Need faster response — research preview, Opus 5 / Opus 4.8 only, premium pricing (~2x) | `/fast` |
 | `/model` | Switch model | `/model sonnet` |
 
 ### Development Workflow Commands

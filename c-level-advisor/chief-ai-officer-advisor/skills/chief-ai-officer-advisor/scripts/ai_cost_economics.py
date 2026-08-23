@@ -48,7 +48,7 @@ SAMPLE: Dict[str, Any] = {
 
 # 2026 API pricing per million tokens, $USD (input / output)
 API_PRICING = {
-    "frontier-premium": {"input": 3.00, "output": 15.00, "label": "Claude Sonnet 4.6 / GPT-4o-tier"},
+    "frontier-premium": {"input": 3.00, "output": 15.00, "label": "Claude Sonnet 5 / GPT-4o-tier"},
     "frontier-economy": {"input": 1.25, "output": 5.00, "label": "Gemini 2.5 Flash / Claude Haiku 4.5-tier"},
     "open-hosted": {"input": 0.50, "output": 1.50, "label": "Llama 3.1 70B / Qwen 2.5 72B via hosted endpoint"},
 }
