@@ -114,7 +114,7 @@ See `references/ai_risk_governance.md` for the full regulatory landscape + gover
 
 **Key components:**
 
-- **API cost** — variable, per-token. Frontier models 2026: Claude Sonnet 4.6 ~$3/$15 per M tokens (input/output), GPT-4o ~$2.50/$10, Gemini 2.5 ~$1.25/$5
+- **API cost** — variable, per-token. Frontier models 2026: Claude Sonnet 5 ~$3/$15 per M tokens (input/output), GPT-4o ~$2.50/$10, Gemini 2.5 ~$1.25/$5
 - **Self-hosted cost** — fixed (GPU commitment) + variable (electricity). H100 spot ~$2-5/hour, A100 spot ~$1-3/hour. Llama 3.1 70B / Qwen 2.5 72B: ~$0.50-2.00 per million output tokens at 70% utilization
 - **Hidden costs of self-hosting** — ops on-call, monitoring, model updates, scaling overhead, idle time penalty
 - **Hidden costs of API** — rate limits requiring multi-vendor failover, vendor lock-in, capability drift between versions, data residency
