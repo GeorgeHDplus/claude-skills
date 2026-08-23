@@ -12,6 +12,11 @@ concurrency:
 
 jobs:
   determine-direction:
+    # The project-board sync below writes to the upstream owner's project
+    # (alirezarezvani, project 9) and needs the upstream PROJECTS_TOKEN.
+    # In a fork neither exists, so every run would fail — skip the whole
+    # workflow outside the upstream repository.
+    if: github.repository == 'alirezarezvani/claude-skills'
     runs-on: ubuntu-latest
     timeout-minutes: 3
     permissions:
