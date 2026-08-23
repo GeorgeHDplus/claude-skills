@@ -21,7 +21,10 @@ jobs:
             const author = pr.user.login;
 
             // Maintainers who can PR to main directly
-            const maintainers = ['alirezarezvani'];
+            // Fork note: this repository is GeorgeHDplus/claude-skills. The owner
+            // of a fork must be able to open PRs against their own `main`, so the
+            // fork owner is listed alongside the upstream maintainer.
+            const maintainers = ['alirezarezvani', 'GeorgeHDplus'];
 
             if (maintainers.includes(author)) {
               console.log(`✅ ${author} is a maintainer — PR to main allowed.`);
